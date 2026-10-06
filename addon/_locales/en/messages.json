@@ -1,0 +1,6 @@
+{
+  "extensionName": { "message": "AccountPane" },
+  "extensionDescription": { "message": "Separate accounts from folders in Thunderbird's folder pane." },
+  "accounts": { "message": "Accounts" },
+  "allAccounts": { "message": "All Accounts" }
+}

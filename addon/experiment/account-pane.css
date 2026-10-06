@@ -1,0 +1,64 @@
+/* Own section only: preserve the native pane, splitter state, and tree scrolling. */
+#accountpane-accounts {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 auto;
+  max-height: 35%;
+  min-height: 0;
+  overflow: hidden;
+  color: var(--pb-sidebar-text, var(--sidebar-color, inherit));
+  background: var(--pb-bg-sidebar, var(--sidebar-background, transparent));
+  font-family: var(--pb-font-family, inherit);
+  font-size: var(--pb-ui-font-size, inherit);
+  border-block-end: 1px solid var(--pb-sidebar-divider, var(--sidebar-border, currentColor));
+}
+
+#accountpane-heading {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 6px 12px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--pb-sidebar-text-muted, var(--sidebar-color, inherit));
+}
+
+#accountpane-list {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: min(28vh, 280px);
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  margin: 0;
+  padding: 0 4px 4px;
+  list-style: none;
+}
+
+#accountpane-list [role="option"] {
+  box-sizing: border-box;
+  padding: 5px 8px;
+  border-radius: 3px;
+  cursor: default;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#accountpane-list [role="option"]:hover {
+  background: var(--pb-sidebar-hover, var(--treeitem-background-hover, transparent));
+}
+
+#accountpane-list [aria-selected="true"] {
+  background: var(--pb-selection-bg, var(--treeitem-background-active, Highlight));
+  color: var(--pb-selection-text, var(--treeitem-text-active, HighlightText));
+}
+
+#accountpane-list [role="option"]:focus-visible {
+  outline: 2px solid var(--focus-outline-color, currentColor);
+  outline-offset: -2px;
+}
+
+/* Paired with the tree filter's owned marker; native row hiding is reversible. */
+#folderTree [data-accountpane-hidden="true"] {
+  display: none !important;
+}
