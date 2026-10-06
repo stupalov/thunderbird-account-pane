@@ -182,19 +182,10 @@ var AccountPaneAdapter = (() => {
         MailServices.mfn.addListener(listener, MailServices.mfn.folderAdded |
           MailServices.mfn.folderDeleted | MailServices.mfn.folderRenamed);
         removers.push(() => MailServices.mfn.removeListener(listener));
-        // Native Local Folders visibility lives in folderPane/XULStore, not a
-        // server preference. Detect list changes when its rows are regenerated.
-        const accountSignature = () => JSON.stringify(listAccounts());
-        let signature = accountSignature();
-        const treeObserver = new window.MutationObserver(() => {
-          if (active()) {
-            const next = accountSignature();
-            if (next !== signature) {
-              signature = next;
-              refresh();
-            }
-          }
-        });
+        // Native row availability can change without account or mode changes.
+        // Child composition also reflects Local Folders visibility. Coalesce
+        // rebuild notifications; filter markers are attributes, not child edits.
+        const treeObserver = new window.MutationObserver(refresh);
         removers.push(() => treeObserver.disconnect());
         treeObserver.observe(window.document.getElementById("folderTree"), {
           childList: true, subtree: true

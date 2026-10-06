@@ -253,3 +253,34 @@ test("native Local Folders hide toggle refreshes accounts without a server prefe
   f.flush();
   assert.deepEqual(seen, [["b", "a"]]);
 });
+
+test("native tree loss of all selected-account rows clears the real controller with unchanged accounts and modes", () => {
+  const f = fixture();
+  const Model = loadScript("addon/lib/model.js", "AccountPaneModel");
+  const Controller = loadScript("addon/experiment/controller.js", "AccountPaneController");
+  const rows = new Map(f.adapter.listFolders("a").map(folder => [folder.uri, { uri: folder.uri }]));
+  f.window.folderPane.getRowForFolder = uri => rows.get(uri) ?? null;
+  const restrictions = [], selections = [], saved = [];
+  const controller = Controller.create({ adapter: f.adapter, model: Model, settings: {},
+    filter: { apply(id) { restrictions.push(id); } },
+    view: { render(accounts, id) { selections.push(id); } },
+    save(patch) { saved.push(structuredClone(patch)); }
+  });
+  assert.equal(selections.at(-1), "a");
+  rows.clear();
+  // No account pref/folder event/mode change accompanies this native rebuild.
+  const mutation = [{ type: "childList", target: f.window.document.getElementById("folderTree") }];
+  for (const observer of f.observers) { observer.callback(mutation); observer.callback(mutation); }
+  f.flush();
+  assert.equal(restrictions.at(-1), null);
+  assert.equal(selections.at(-1), null);
+  assert.deepEqual(saved, [{ selectedAccountId: null }]);
+  assert.deepEqual(Array.from(f.adapter.listAccounts(), account => account.id), ["b", "a", "local"]);
+  assert.deepEqual(Array.from(f.adapter.activeModes()), ["all", "favorite"]);
+  assert.equal(f.adapter.currentFolder().uri, "fixture://a/RenamedInbox");
+  assert.deepEqual(f.displays, []);
+  const rendered = selections.length;
+  f.flush();
+  assert.equal(selections.length, rendered);
+  controller.dispose(); f.adapter.dispose();
+});
