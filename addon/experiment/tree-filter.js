@@ -120,9 +120,23 @@ var AccountPaneTreeFilter = (() => {
     }
 
     hooks[0].wrapper = function() {
+      // Native getter errors retain their native semantics. Only our filtering
+      // step can fail open after the native rows have been obtained.
       const rows = hooks[0].native.call(this);
-      return disposed || selectedAccountId === null ? rows :
-        rows.filter(row => accountForRow(row) === selectedAccountId);
+      if (disposed || selectedAccountId === null) {
+        return rows;
+      }
+      try {
+        return rows.filter(row => accountForRow(row) === selectedAccountId);
+      } catch {
+        clearRestrictions();
+        try {
+          followTarget(null);
+        } catch {
+          // A failing notification must not interrupt the native rows consumer.
+        }
+        return rows;
+      }
     };
     for (const hook of hooks.slice(1)) {
       hook.wrapper = function(...args) {

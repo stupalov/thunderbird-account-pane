@@ -270,3 +270,67 @@ test("writable non-configurable native methods keep flags and restore values", (
   filter.dispose();
   assert.deepEqual(Object.getOwnPropertyDescriptor(f.window, "ensureFolderTreeRowIsVisible"), before);
 });
+
+test("resolver failure in rows allows native selection and releases hidden markers", () => {
+  const f = makeTreeFixture();
+  const nativeRows = f.tree.rows;
+  Object.defineProperty(f.tree, "rows", { configurable: true, get() { return nativeRows; } });
+  let resolverFails = false;
+  f.options.accountForRow = row => {
+    if (resolverFails && row.accountId === "b") {
+      throw new Error("synthetic foreign resolver failure");
+    }
+    return row.accountId;
+  };
+  const filter = filters.attach(f.options);
+  filter.apply("a");
+  assert.equal(nativeRows[1].getAttribute("data-accountpane-hidden"), "true");
+  resolverFails = true;
+  assert.equal(f.tree.updateSelection(nativeRows[0]), "updated");
+  assert.deepEqual(f.tree.selection, [nativeRows[0]]);
+  assert.equal(f.tree.rows, nativeRows);
+  assert.equal(nativeRows[1].getAttribute("data-accountpane-hidden"), null);
+  assert.deepEqual(f.events.map(event => event.type), ["follow", "update"]);
+  assert.equal(f.events[0].accountId, null);
+  filter.dispose();
+});
+
+test("resolver fail-open tolerates a failing All Accounts notification", () => {
+  const f = makeTreeFixture();
+  let resolverFails = false;
+  f.options.accountForRow = row => {
+    if (resolverFails && row.accountId === "b") {
+      throw new Error("synthetic foreign resolver failure");
+    }
+    return row.accountId;
+  };
+  f.options.followTarget = () => { throw new Error("synthetic notification failure"); };
+  const filter = filters.attach(f.options);
+  filter.apply("a");
+  resolverFails = true;
+  assert.equal(f.tree.updateSelection(f.tree.allRows[0]), "updated");
+  assert.deepEqual(f.tree.selection, [f.tree.allRows[0]]);
+  assert.deepEqual(ids(f.tree), ["a", "b"]);
+  assert.equal(f.tree.allRows[1].getAttribute("data-accountpane-hidden"), null);
+  filter.dispose();
+});
+
+test("native rows getter exceptions propagate without clearing account restriction", () => {
+  const f = makeTreeFixture();
+  const nativeGetter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(f.tree), "rows").get;
+  const nativeError = new Error("synthetic native getter failure");
+  let nativeFails = false;
+  Object.defineProperty(f.tree, "rows", { configurable: true, get() {
+    if (nativeFails) { throw nativeError; }
+    return nativeGetter.call(this);
+  } });
+  const filter = filters.attach(f.options);
+  filter.apply("a");
+  nativeFails = true;
+  assert.throws(() => f.tree.rows, error => error === nativeError);
+  assert.equal(f.tree.allRows[1].getAttribute("data-accountpane-hidden"), "true");
+  nativeFails = false;
+  assert.deepEqual(ids(f.tree), ["a"]);
+  assert.equal(f.events.length, 0);
+  filter.dispose();
+});
