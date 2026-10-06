@@ -1,0 +1,26 @@
+{
+  "manifest_version": 2,
+  "name": "__MSG_extensionName__",
+  "version": "0.1.0",
+  "default_locale": "en",
+  "description": "__MSG_extensionDescription__",
+  "permissions": ["storage"],
+  "background": { "scripts": ["background.js"] },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "accountpane@stupalov.github.io",
+      "strict_min_version": "157.0.1",
+      "strict_max_version": "157.*"
+    }
+  },
+  "experiment_apis": {
+    "accountPane": {
+      "schema": "experiment/schema.json",
+      "parent": {
+        "scopes": ["addon_parent"],
+        "paths": [["accountPane"]],
+        "script": "experiment/implementation.js"
+      }
+    }
+  }
+}

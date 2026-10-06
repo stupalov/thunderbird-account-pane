@@ -1,0 +1,42 @@
+[
+  {
+    "namespace": "accountPane",
+    "description": "Local account pane selection and folder history.",
+    "types": [
+      {
+        "id": "Settings",
+        "type": "object",
+        "properties": {
+          "version": { "type": "integer", "minimum": 1, "maximum": 1 },
+          "selectedAccountId": { "choices": [{ "type": "string" }, { "type": "null" }] },
+          "lastFolders": { "type": "object", "additionalProperties": { "type": "string" } }
+        }
+      },
+      {
+        "id": "StatePatch",
+        "type": "object",
+        "properties": {
+          "selectedAccountId": { "optional": true, "choices": [{ "type": "string" }, { "type": "null" }] },
+          "lastFolder": {
+            "optional": true,
+            "type": "object",
+            "properties": {
+              "accountId": { "type": "string" },
+              "uri": { "type": "string" }
+            }
+          }
+        }
+      }
+    ],
+    "functions": [
+      { "name": "start", "type": "function", "async": true,
+        "parameters": [{ "name": "settings", "$ref": "Settings" }] },
+      { "name": "settingsChanged", "type": "function", "async": true,
+        "parameters": [{ "name": "settings", "$ref": "Settings" }] }
+    ],
+    "events": [
+      { "name": "onStateChanged", "type": "function",
+        "parameters": [{ "name": "patch", "$ref": "StatePatch" }] }
+    ]
+  }
+]
