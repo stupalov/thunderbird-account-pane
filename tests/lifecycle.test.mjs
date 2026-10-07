@@ -107,3 +107,15 @@ test("throwing native monitor removal does not prevent pane cleanup", async () =
   assert.doesNotThrow(() => f.lifecycle.dispose()); assert.equal(f.cleaned.length, 1);
   assert.deepEqual(f.logs, ["ACCOUNTPANE_CLEANUP_FAILED"]);
 });
+
+test("native title-change callbacks stay harmless before and after cleanup", async () => {
+  const f = fixture(); f.lifecycle.start(); await tick();
+  const monitor = [...f.monitors][0]; const nativeErrors = [];
+  const notify = () => { try { monitor.onTabTitleChanged(f.tab); } catch (error) { nativeErrors.push(error); } };
+  notify(); notify(); await tick();
+  assert.equal(nativeErrors.length, 0);
+  assert.equal(f.attached.length, 1); assert.equal(f.cleaned.length, 0);
+  f.lifecycle.dispose(); notify(); await tick();
+  assert.equal(nativeErrors.length, 0); assert.equal(f.attached.length, 1); assert.equal(f.cleaned.length, 1);
+  assert.deepEqual(f.logs, []);
+});

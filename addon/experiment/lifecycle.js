@@ -81,6 +81,7 @@ var AccountPaneLifecycle = (() => {
       record.monitor = {
         monitorName: "accountPane",
         onTabSwitched: tab => inspect(record, tab),
+        onTabTitleChanged() {},
         onTabOpened: tab => inspect(record, tab),
         onTabRestored: tab => inspect(record, tab),
         onTabClosing: tab => closeTab(record, tab)
