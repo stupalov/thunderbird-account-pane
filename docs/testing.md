@@ -1,68 +1,134 @@
-# AccountPane testing
+# Проверка AccountPane 0.1.0
 
-Target: Thunderbird 157.0.1 on macOS with Apple Silicon. The packaged compatibility
-range is 157.0.1–157.*; other releases remain unverified.
+**Статус: подготовлено к установке; нативная проверка НЕ ВЫПОЛНЕНА.**
+Дата записи: 2026-10-07. Цель — Thunderbird 157.0.1 на macOS Apple Silicon.
+Статическое чтение установленного приложения подтвердило эту версию и нужные
+внутренние API. Диапазон манифеста 157.0.1–157.* не является проверкой всех версий.
 
-Automated checks use Node.js 24 built-in tests and Python 3, with no dependencies:
+## Выполненные независимые проверки
+
+| Проверка | Результат |
+| --- | --- |
+| Последний полный автоматический прогон после изменения callback заголовка вкладки | PASS: 129/129, 0 ошибок, 0 пропусков |
+| Синтаксис addon/test JS/MJS и Python-сборщика | PASS; для финального callback дополнительно проверен lifecycle.js |
+| Сборка финальных исходников | PASS |
+| Воспроизводимость неизменной сборки | PASS в автоматическом тесте сборщика |
+| Состав XPI и CRC | PASS: 13 разрешённых файлов, без повреждений |
+| Реальный Experiment schema loader и установка XPI | NOT RUN |
+| Нативный UI, отключение/удаление и рабочий профиль | NOT RUN |
+
+Это результаты реализации задач 1–5 и финального исправления lifecycle на
+исходниках `791d1f853ec8f7af5c0fca985e5689d4cf9ba968`. При подготовке документов
+неизменный набор из 129 тестов повторно не запускался. Размер, SHA-256, CRC и
+манифест существующего XPI повторно прочитаны без установки.
 
 ```sh
+# Из корня репозитория; Node.js 24 и Python 3, без npm и зависимостей.
 node --test tests/*.test.mjs
 python3 scripts/build.py
 ```
 
-The builder emits `dist/accountpane-0.1.0.xpi` and its SHA-256. It includes only
-explicitly listed addon files, validates JSON and manifest references, rejects
-symlinks, and excludes test fixtures, documentation, profiles and Git metadata.
-Rebuilding unchanged inputs produces identical bytes.
+Артефакт: `dist/accountpane-0.1.0.xpi`, 15 768 байт,
+ID `accountpane@stupalov.github.io`, версия 0.1.0.
+SHA-256: `f3a20373da654bb08360c6c69d26449600fd8dd80891010778ebe091a0283103`.
+Сборщик включает только 13 перечисленных файлов addon, проверяет JSON/ссылки
+манифеста и отклоняет символьные ссылки; профили, письма, тесты, docs и Git исключены.
 
-## Native acceptance remains pending
+## Обязательное согласие перед нативной фазой
 
-Synthetic tests and read-only native source inspection have passed during
-implementation. No live installation or test-profile acceptance has been
-performed. Obtain explicit approval for the Experiment's unrestricted access
-prompt before installing this concrete XPI. The `storage` permission shown in the
-manifest does not limit an Experiment's privileged native access.
+**Ожидается отдельное явное разрешение** на установку этого XPI и полный доступ
+Experiment. До него не запускать приложение для проверки, не создавать/редактировать
+профили, не устанавливать дополнение и не подтверждать security prompt.
 
-Use a separate designated test profile; keep the working profile closed and
-unchanged. Keep protective preferences intact. Do not weaken add-on signature,
-Experiment, or security preferences to bypass an installation refusal. If the
-application declines installation, record the reason and stop that path.
+Несмотря на `permissions: ["storage"]`, Experiment получает неограниченный доступ
+к Thunderbird и компьютеру по [официальной модели разрешений](https://developer.thunderbird.net/add-ons/mailextensions/experiments).
+Текущий код использует метаданные аккаунтов/папок, обратимые изменения панели и
+локальные настройки; он не читает тела писем/пароли и не делает внешних запросов.
+Это описание кода, не привилегий или технической изоляции.
 
-Prepare only synthetic IMAP/POP accounts, Local Folders, and disposable test
-messages. Do not copy private profiles, passwords, mail, account labels or URIs
-into the repository, logs, screenshots or release artifacts. Only synthetic
-messages may be moved during acceptance.
+Согласование должно предъявлять [исходники](https://github.com/stupalov/thunderbird-account-pane/tree/791d1f853ec8f7af5c0fca985e5689d4cf9ba968),
+версию/хеш выше, этот объём доступа и [откат](../README.md#отключение-и-откат).
+Все действия с приложением после согласия выполнять через разрешённое native UI.
+Не ослаблять проверку подписей, защитные preferences или Gatekeeper. При отказе
+установки записать причину и остановить этот путь.
 
-## Native checks on the approved test profile
+## Конфигурация после согласия — NOT RUN
 
-1. Start with existing mail tabs and open another mail tab while initialization
-   is pending. AccountPane should attach once per initialized `about:3pane`
-   document, after Thunderbird restores the current native folder. Message,
-   calendar and other tabs should stay untouched. Close a pending tab and
-   disable the add-on during startup; no late pane should appear.
-2. In All Folders and Favorites, select each synthetic account and All Accounts.
-   Verify native folder ordering, indentation, collapsing, multiselection,
-   focus, arrow keys and Tab navigation. Test a favorite-only account with no
-   visible folder row; the interface should fall back to All Accounts.
-3. Navigate from another native UI surface into a different account's folder.
-   Restricted selection should follow its owner before native row selection.
-   All Accounts should remain unrestricted. Unsupported tree modes should
-   leave the native tree usable.
-4. Open two mail tabs, switch accounts quickly, and open different synthetic
-   folders. Each tab should retain its own runtime choice; shared persisted
-   history should retain each latest actual folder opening. Restart the add-on
-   and verify current native folder ownership takes precedence at attachment.
-5. Rename/delete a synthetic remembered folder and remove a synthetic account.
-   Verify a same-account navigable fallback or All Accounts; no stuck hidden
-   tree should remain. Toggle Local Folders visibility and rebuild native tree
-   modes; observe that restrictions refresh.
-6. Disable the add-on with open and loading tabs. Check that the account list,
-   added style, tree wrappers, observers, tab monitors and listeners are gone,
-   native selection is available, and user CSS is unchanged. Re-enable and
-   verify one attachment per document. Repeat with another add-on modifying
-   the same native hook: unsupported hooks must leave the native pane usable.
+- Отдельный обозначенный тестовый профиль 157.0.1; рабочий профиль закрыт.
+- Два искусственных почтовых аккаунта с отдельными локальными хранилищами,
+  вложенными папками и доступными «Локальными папками». Допустимы offline POP
+  без реальных серверов/паролей, с отключёнными проверками почты.
+- Папка без Inbox, пустые Local Folders, favorite-only набор и аккаунт без строк
+  в текущем режиме. Только специально созданные искусственные сообщения.
+- Сначала штатная тема, затем Postbird Tangaroa и Conversations 4.3.16 в согласованной
+  тестовой конфигурации. Не отправлять реальную почту.
 
-Document outcomes with synthetic fixture descriptions and fixed diagnostic
-codes only. UI layout, native observer timing, shutdown cleanup, keyboard and
-cross-extension behavior require these live checks; automated checks do not
-claim them passed.
+Не переносить личный профиль в Git или в старую версию Thunderbird. Имена/URI,
+письма, пароли и пути личного профиля не включать в отчёты, публичные скриншоты
+или артефакты. Результаты фиксировать с искусственными обозначениями и фиксированными
+кодами диагностики.
+
+## Нативные сценарии — все NOT RUN
+
+Для каждого сценария записать версию приложения, конфигурацию, ожидаемое/фактическое
+поведение и PASS/FAIL. Пустая отметка ниже означает, что сценарий ещё не запускался.
+
+- [ ] **Установка и загрузка.** Установить согласованный XPI через менеджер
+  дополнений; проверить реальный full-access prompt, schema loader, AccountPane
+  0.1.0 active=true и один список аккаунтов над деревом. Проверить существующую
+  и новую почтовую вкладку после восстановления штатной текущей папки.
+  Вкладки писем, календаря и прочие не затрагиваются.
+- [ ] **Аккаунты и дерево.** В All Folders, Favorites и их сочетании выбрать оба
+  аккаунта и All Accounts. Проверить порядок, вложенность, штатные счётчики,
+  раскрытие и соответствие выбранной папки видимой строке. All Accounts сохраняет
+  текущую папку. Проверить отсутствие Inbox и пустые Local Folders.
+- [ ] **История и Favorites.** Вернуться к последней папке. Если запомненный Inbox
+  существует, но не избранный, использовать доступную избранную строку; простая
+  проверка/очистка настроек не удаляет существующий скрытый URI из истории.
+  Фактическое открытие запасной папки может обновить историю. Без строк аккаунта
+  перейти в All Accounts, сохранив текущую папку и activeModes.
+- [ ] **Клавиатура и фокус.** В списке аккаунтов проверить ArrowUp/Down/Home/End,
+  Enter/Space и Tab/Shift+Tab. В штатном дереве проверить ArrowUp/Down/Home/End/
+  PageUp/PageDown, отсутствие выбора скрытых строк, раскрытие и видимый фокус.
+- [ ] **Штатные действия.** Контекстное меню, внешний переход в другой аккаунт и
+  смешанный мультивыбор. При ограничении переход согласует аккаунт до выбора
+  строки; All Accounts остаётся без ограничения. Перетащить только искусственное
+  письмо между тестовыми папками: штатный перенос должен выполниться ровно один раз.
+- [ ] **Вкладки, окна и перезапуск.** Две почтовые вкладки и второе окно, быстрые
+  переключения и сохранение последних реальных открытий. Выбор каждой вкладки
+  независим. После перезапуска текущая штатная папка имеет приоритет при подключении.
+- [ ] **Режимы и перестроения.** Переключить unified и обратно all/favorite:
+  All Accounts сохраняется до явного выбора аккаунта. Переименовать/удалить только
+  искусственную последнюю папку, удалить тестовый аккаунт, изменить видимость Local
+  Folders. Проверить запасной выбор и обновление после перестроения дерева.
+- [ ] **Отключение и очистка.** Отключить/включить дважды с открытыми и загружающимися
+  вкладками. Проверить полное дерево, сохранённую текущую папку, восстановленные
+  исходные дескрипторы, удалённые стили/обработчики/observers/monitors и отсутствие
+  дубликатов. Пользовательский CSS остаётся прежним. Затем проверить удаление.
+- [ ] **Гонки и несовместимость.** Закрыть вкладку во время загрузки, отключить
+  дополнение до завершения запуска; поздних подключений не должно быть. Проверить
+  недоступную точку подключения и конфликт другого дополнения с тем же методом:
+  штатная панель должна оставаться доступной.
+- [ ] **Оформление и сочетания.** Штатная тема и Tangaroa: системный шрифт,
+  текущие 13 px в Tangaroa, выделение, узкое/низкое окно, независимые прокрутки,
+  скрытие/возврат панели сплиттером. Проверить работу с Conversations 4.3.16.
+
+## Рабочий профиль после тестов — NOT RUN
+
+Переход требует успешной нативной проверки и отдельного согласования. До установки
+зафиксировать исходный вид/режимы панели и состояние дополнений, закрыть Thunderbird
+и сохранить локальную копию затрагиваемых UI-настроек и данных AccountPane вне Git,
+без почты и паролей. Для выбранного профиля заранее определить состав файлов и
+проверить способ восстановления. Установить тот же проверенный XPI, подтвердить
+0.1.0 active=true и наличие списка аккаунтов; показать результат без личных адресов
+и писем. При проблеме сначала отключить дополнение по [инструкции](../README.md#отключение-и-откат).
+
+До этой фазы рабочий профиль, реальные письма, аккаунты, настройки серверов,
+пароли и пользовательский CSS не изменялись.
+
+## Граница завершения
+
+129 синтетических тестов не заменяют проверку настоящего UI, schema loader,
+observer timing, клавиатуры, переноса и очистки. Task 6 остаётся незавершённой до
+согласованной нативной приёмки и фиксации фактических результатов. Любой обнаруженный
+дефект сначала воспроизвести точным live-сценарием или регрессионным тестом.
