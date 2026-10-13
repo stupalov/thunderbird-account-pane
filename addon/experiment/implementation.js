@@ -44,7 +44,9 @@ var accountPane = class extends ExtensionCommon.ExtensionAPI {
     const scope = {};
     for (const path of ["lib/model.js", "experiment/tree-filter.js", "experiment/account-view.js",
       "experiment/controller.js", "experiment/thunderbird-adapter.js", "experiment/lifecycle.js"]) {
-      Services.scriptloader.loadSubScript(this.extension.rootURI.resolve(path), scope);
+      Services.scriptloader.loadSubScriptWithOptions(this.extension.rootURI.resolve(path), {
+        target: scope, allowUnsafeURL: true
+      });
     }
     const cssText = await new Promise((resolve, reject) => {
       NetUtil.asyncFetch({ uri: this.extension.rootURI.resolve("experiment/account-pane.css"),

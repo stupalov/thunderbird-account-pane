@@ -3,9 +3,10 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import vm from "node:vm";
 const path = new URL("../addon/experiment/implementation.js", import.meta.url);
-function fixture({ failFilter = false, delayCSS = false, failController = false, failCSS = false } = {}) {
+function fixture({ failFilter = false, delayCSS = false, failController = false, failCSS = false,
+  packagedRootURI = null } = {}) {
   assert.ok(existsSync(path), "Experiment implementation must exist");
-  const events = [], logs = [], controllers = [], loaded = []; let attach, cssCallback, register;
+  const events = [], logs = [], controllers = [], loaded = []; let attach, cssCallback, register, globalScope;
   const settings = { version: 1, selectedAccountId: null, lastFolders: {} };
   const FolderUtils = { compareFolders() {} }, MailServices = {}, Ci = {};
   const pane = { document: { getElementById: () => ({}) } };
@@ -33,21 +34,34 @@ function fixture({ failFilter = false, delayCSS = false, failController = false,
       return { start() { events.push("start"); }, dispose() { events.push("lifecycle-dispose"); disposer?.(); } }; } }
   };
   let disposer;
-  const Services = { scriptloader: { loadSubScript(url, scope) { loaded.push({ url, scope }); Object.assign(scope, helpers); } },
+  const Services = { scriptloader: {
+    loadSubScript(url, scope) {
+      if (url.startsWith("jar:")) throw Error("packaged scripts require explicit permission");
+      loaded.push({ url, scope }); Object.assign(scope, helpers);
+    },
+    loadSubScriptWithOptions(url, options) {
+      assert.ok(url.startsWith(packagedRootURI ?? "moz-extension://fixture/"));
+      assert.equal(options.allowUnsafeURL, true);
+      assert.notEqual(options.target, globalScope);
+      assert.equal(typeof options.target, "object");
+      loaded.push({ url, scope: options.target }); Object.assign(options.target, helpers);
+    }
+  },
     obs: { notifyObservers(subject, topic, data) { events.push(["notify", subject, topic, data]); } } };
   class ExtensionAPI { constructor(extension) { this.extension = extension; } }
   class EventManager { constructor(options) { register = options.register; } api() { return { register }; } }
   const ExtensionSupport = { registerWindowListener: () => true, unregisterWindowListener() {} };
   const NetUtil = { asyncFetch(options, callback) { if (failCSS) throw Error("private fixture://uri"); assert.equal(options.loadUsingSystemPrincipal, true);
-      assert.ok(options.uri.startsWith("moz-extension://fixture/")); cssCallback = callback;
+      assert.ok(options.uri.startsWith(packagedRootURI ?? "moz-extension://fixture/")); cssCallback = callback;
       if (!delayCSS) callback({ available: () => 11, close() {} }, 0); }, readInputStreamToString: () => "fixture CSS" };
   const modules = { Services, MailServices, FolderUtils, ExtensionSupport, NetUtil };
-  const extension = { id: "accountpane@stupalov.github.io", rootURI: { resolve: p => "moz-extension://fixture/" + p },
+  const extension = { id: "accountpane@stupalov.github.io", rootURI: { resolve: p => (packagedRootURI ?? "moz-extension://fixture/") + p },
     localeData: { localizeMessage: key => ({ accounts: "Accounts", allAccounts: "All Accounts" })[key] } };
   const scope = vm.createContext({ ExtensionCommon: { ExtensionAPI, EventManager }, Services, Ci,
     Components: { isSuccessCode: status => status === 0 }, ChromeUtils: { importESModule(url) {
       const name = url.split("/").at(-1).split(".")[0]; assert.ok(modules[name], url); return { [name]: modules[name] };
     } }, console: { error: code => logs.push(code) } });
+  globalScope = scope;
   vm.runInContext(readFileSync(path, "utf8"), scope);
   const implementation = new scope.accountPane(extension), api = implementation.getAPI({}).accountPane;
   return { implementation, api, events, logs, loaded, settings, controllers,
@@ -68,6 +82,17 @@ test("Experiment isolates helpers and wires controller adapter filter view and s
   f.implementation.onShutdown(false);
   assert.deepEqual(f.events.slice(-6), ["lifecycle-dispose", "controller-dispose", "adapter-dispose", "filter-dispose", "view-dispose",
     ["notify", null, "startupcache-invalidate", null]]);
+});
+test("packaged Experiment loads only its six fixed helpers into one isolated scope", async () => {
+  const root = "jar:file:///fixture/accountpane.xpi!/";
+  const f = fixture({ packagedRootURI: root }); f.listen({ async: () => Promise.resolve() });
+  await f.api.start(f.settings);
+  assert.equal(f.loaded.length, 6);
+  assert.ok(f.loaded.every(item => item.url.startsWith(root) && item.scope === f.loaded[0].scope));
+  assert.deepEqual(f.loaded.map(item => item.url.slice(root.length)), ["lib/model.js", "experiment/tree-filter.js",
+    "experiment/account-view.js", "experiment/controller.js", "experiment/thunderbird-adapter.js", "experiment/lifecycle.js"]);
+  assert.equal(f.scope.AccountPaneModel, undefined);
+  f.implementation.onShutdown(true);
 });
 test("partial filter attach failure rolls back view and adapter and logs only a fixed code", async () => {
   const f = fixture({ failFilter: true }); f.listen({ async: () => Promise.resolve() }); await f.api.start(f.settings);
