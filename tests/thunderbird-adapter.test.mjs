@@ -284,3 +284,38 @@ test("native tree loss of all selected-account rows clears the real controller w
   assert.equal(selections.length, rendered);
   controller.dispose(); f.adapter.dispose();
 });
+
+test("native same-account multiple selection survives tree refresh but removed selected rows recover", () => {
+  const f = fixture();
+  const Model = loadScript("addon/lib/model.js", "AccountPaneModel");
+  const Controller = loadScript("addon/experiment/controller.js", "AccountPaneController");
+  const tree = f.window.document.getElementById("folderTree");
+  const rows = [f.inbox, f.archive].map(folder => ({ uri: folder.URI,
+    dataset: { serverKey: folder.server.key } }));
+  tree.rows = [...rows];
+  tree.selection = new Set(rows);
+  f.window.folderPane.getRowForFolder = uri => tree.rows.find(row => row.uri === uri) ?? null;
+  const selections = [], saved = [];
+  const controller = Controller.create({ adapter: f.adapter, model: Model, settings: {},
+    filter: { apply() {} }, view: { render(accounts, id) { selections.push(id); } },
+    save(patch) { saved.push(structuredClone(patch)); }
+  });
+  // about3Pane._onSelect clears gFolder and emits folderURIChanged for size > 1.
+  f.window.gFolder = null;
+  f.folderEvent();
+  tree.rows.push({ uri: f.nested.URI, dataset: { serverKey: "server-a" } });
+  const mutation = [{ type: "childList", target: tree }];
+  for (const observer of f.observers) { observer.callback(mutation); }
+  f.flush();
+  assert.deepEqual(f.displays, [], "valid native multiple selection must not open a single folder");
+  assert.deepEqual([...tree.selection], rows);
+  assert.equal(selections.at(-1), "a");
+  assert.deepEqual(saved, []);
+  // A detached selected row is a real loss, even if another valid row remains.
+  tree.rows = tree.rows.filter(row => row !== rows[1]);
+  for (const observer of f.observers) { observer.callback(mutation); }
+  f.flush();
+  assert.deepEqual(f.displays.map(display => display.uri), ["fixture://a/RenamedInbox"]);
+  assert.deepEqual(saved, [], "recovery intent must not fabricate history");
+  controller.dispose(); f.adapter.dispose();
+});

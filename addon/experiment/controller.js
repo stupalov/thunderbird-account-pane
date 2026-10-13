@@ -42,6 +42,12 @@ var AccountPaneController = (() => {
       if (disposed) {
         return;
       }
+      // The folder already open at attachment has no new folder-change event.
+      // Remember its validated URI when leaving, through the same save protocol.
+      const current = adapter.currentFolder();
+      if (current && current.accountId !== id) {
+        rememberFolder(current);
+      }
       // Resolve against existing folders of this account before hiding rows.
       const allowed = supported() && id !== null && validAccount(id);
       const target = allowed ? model.resolveTarget(id, displayableFolders(id), lastFolders) : null;
@@ -63,10 +69,7 @@ var AccountPaneController = (() => {
       }
     }
 
-    function folderChanged(folder) {
-      if (disposed) {
-        return;
-      }
+    function rememberFolder(folder, followAccount = false) {
       if (!folder || !validAccount(folder.accountId)) {
         return;
       }
@@ -75,7 +78,9 @@ var AccountPaneController = (() => {
       if (!actual) {
         return;
       }
-      followFolder(actual.accountId);
+      if (followAccount) {
+        followFolder(actual.accountId);
+      }
       lastFolders[actual.accountId] = actual.uri;
       const pending = { uri: actual.uri };
       pendingFolders.set(actual.accountId, pending);
@@ -84,6 +89,13 @@ var AccountPaneController = (() => {
           pendingFolders.delete(actual.accountId);
         }
       });
+    }
+
+    function folderChanged(folder) {
+      if (!disposed) {
+        // Only a real native event follows the folder's account restriction.
+        rememberFolder(folder, true);
+      }
     }
 
     function refresh() {
@@ -105,6 +117,12 @@ var AccountPaneController = (() => {
       if (id !== null) {
         const current = adapter.currentFolder();
         const folders = adapter.listFolders(id);
+        // Native multiple selection deliberately clears gFolder. Keep that
+        // selection only while every selected row is still live and belongs here.
+        const selected = current ? [] : adapter.selectedFolders();
+        if (selected.length > 1 && selected.every(folder => folder.accountId === id)) {
+          return;
+        }
         // Native delete/rename may leave a stale folder object or clear gFolder.
         if (!current || current.accountId === id && (!adapter.canDisplayFolder(current.uri) ||
             !folders.some(folder => folder.available && folder.uri === current.uri))) {

@@ -32,6 +32,36 @@ test("build emits only reviewed addon files and validates archived manifest", ()
     assert.equal(f.run().status, 0); assert.deepEqual(readFileSync(join(f.root, "dist/accountpane-0.1.0.xpi")), first);
   } finally { f.dispose(); }
 });
+test("packaged compatibility accepts app 157.0.1 against its platform milestone 157.0", () => {
+  const f = fixture();
+  try {
+    const result = f.run();
+    assert.equal(result.status, 0, result.stderr);
+    const inspect = spawnSync("python3", ["-c", "import json,zipfile,sys; z=zipfile.ZipFile(sys.argv[1]); print(json.dumps(json.loads(z.read('manifest.json'))['browser_specific_settings']['gecko']))",
+      join(f.root, "dist/accountpane-0.1.0.xpi")], { encoding: "utf8" });
+    assert.equal(inspect.status, 0, inspect.stderr);
+    const compatibility = JSON.parse(inspect.stdout);
+    // XPIInstall targets TOOLKIT_ID: XPIDatabase compares aPlatformVersion,
+    // not the app's patch release. These are the inspected native versions.
+    const installed = { appVersion: "157.0.1", platformVersion: "157.0" };
+    const compare = (left, right) => {
+      const a = left.split(".").map(Number), b = right.split(".").map(Number);
+      for (let i = 0; i < Math.max(a.length, b.length); i++) {
+        if ((a[i] ?? 0) !== (b[i] ?? 0)) { return (a[i] ?? 0) - (b[i] ?? 0); }
+      }
+      return 0;
+    };
+    assert.ok(compare(installed.platformVersion, compatibility.strict_min_version) >= 0,
+      `app ${installed.appVersion} must be installable on platform ${installed.platformVersion}`);
+    assert.equal(compatibility.strict_max_version, "157.*");
+    const file = join(f.root, "addon/manifest.json"), manifest = JSON.parse(readFileSync(file));
+    manifest.browser_specific_settings.gecko.strict_min_version = "157.0.1";
+    writeFileSync(file, JSON.stringify(manifest));
+    const rejected = f.run();
+    assert.notEqual(rejected.status, 0, "builder must reject the known platform-incompatible minimum");
+    assert.match(rejected.stderr, /ACCOUNTPANE_BUILD_INVALID_INPUT/);
+  } finally { f.dispose(); }
+});
 test("build rejects file symlinks and symlinked parent directories without emitting archive", () => {
   for (const directory of [false, true]) {
     const f = fixture();

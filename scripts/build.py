@@ -75,7 +75,7 @@ def build(root):
     require(manifest["default_locale"] == "en" and manifest["permissions"] == ["storage"])
     require(manifest["browser_specific_settings"]["gecko"] == {
         "id": "accountpane@stupalov.github.io",
-        "strict_min_version": "157.0.1", "strict_max_version": "157.*"})
+        "strict_min_version": "157.0", "strict_max_version": "157.*"})
     require(set(manifest["experiment_apis"]) == {"accountPane"})
     experiment = manifest["experiment_apis"]["accountPane"]
     require(experiment == {"schema": "experiment/schema.json", "parent": {

@@ -20,6 +20,7 @@ function fixture({ settings = {}, current = null, modes = ["all", "favorite"], c
     listAccounts: () => data.accounts,
     listFolders: id => data.folders.filter(folder => folder.accountId === id),
     currentFolder: () => current,
+    selectedFolders: () => [],
     activeModes: () => modes,
     canDisplayFolder,
     displayFolder(uri) { displayCalls.push(uri); effects.push(["display", uri]); },
@@ -104,6 +105,39 @@ test("initial attach uses current ownership before saved account without navigat
   assert.deepEqual(f.displayCalls, []);
   assert.deepEqual(f.saved, []);
   assert.deepEqual(f.effects.at(-1)[2], ["b", "a", "local", "pop"]);
+});
+
+for (const lastFolders of [{}, { a: "fixture://a/renamed-inbox" }]) {
+  test(`initial Archive survives first account roundtrip with ${Object.keys(lastFolders).length ? "stale" : "empty"} history`, () => {
+    const f = fixture({ current: { accountId: "a", uri: "fixture://a/archive", available: true },
+      settings: { lastFolders } });
+    assert.equal(f.selected(), "a");
+    assert.deepEqual(f.displayCalls, []);
+    assert.deepEqual(f.saved, [], "attachment must not fabricate a folder change");
+    f.controller.selectAccount("b");
+    // An older persisted snapshot can arrive while leaving the initial folder.
+    f.controller.updateSettings({ lastFolders: { a: "fixture://a/renamed-inbox" } });
+    f.controller.selectAccount("a");
+    assert.equal(f.displayCalls.at(-1), "fixture://a/archive");
+    assert.deepEqual(f.saved.filter(patch => patch.lastFolder), [
+      { lastFolder: { accountId: "a", uri: "fixture://a/archive" } }
+    ]);
+    f.controller.dispose();
+  });
+}
+
+test("startup history stays local to each tab until its actual current folder is saved", () => {
+  const archive = fixture({ current: { accountId: "a", uri: "fixture://a/archive" } });
+  const inbox = fixture({ current: { accountId: "a", uri: "fixture://a/renamed-inbox" } });
+  archive.controller.selectAccount("b");
+  inbox.controller.updateSettings({ lastFolders: { a: "fixture://a/archive" } });
+  inbox.controller.selectAccount("b");
+  archive.controller.updateSettings({ lastFolders: { a: "fixture://a/renamed-inbox" } });
+  archive.controller.selectAccount("a");
+  inbox.controller.selectAccount("a");
+  assert.equal(archive.displayCalls.at(-1), "fixture://a/archive");
+  assert.equal(inbox.displayCalls.at(-1), "fixture://a/renamed-inbox");
+  archive.controller.dispose(); inbox.controller.dispose();
 });
 
 test("unsupported modes clear restriction and returning to supported modes waits for user choice", () => {

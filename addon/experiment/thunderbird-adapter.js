@@ -99,6 +99,29 @@ var AccountPaneAdapter = (() => {
       return Array.from(window.folderPane.activeModes);
     }
 
+    function selectedFolders() {
+      try {
+        const tree = window.document.getElementById("folderTree");
+        const rows = tree.rows;
+        const folders = [];
+        for (const row of tree.selection) {
+          // The selection Set can retain a row removed by a native rebuild.
+          if (!rows.includes(row)) {
+            return [];
+          }
+          const id = accountForRow(row);
+          const folder = listFolders(id).find(item => item.available && item.uri === row.uri);
+          if (!folder) {
+            return [];
+          }
+          folders.push(folder);
+        }
+        return folders;
+      } catch {
+        return [];
+      }
+    }
+
     function canDisplayFolder(uri) {
       try {
         return !disposed && Boolean(window.folderPane.getRowForFolder(uri));
@@ -220,7 +243,7 @@ var AccountPaneAdapter = (() => {
         }
       }
     }
-    return { listAccounts, listFolders, currentFolder, activeModes, canDisplayFolder,
+    return { listAccounts, listFolders, currentFolder, selectedFolders, activeModes, canDisplayFolder,
       displayFolder, accountForRow, onFolderChanged, onAccountsChanged, onModesChanged, dispose };
   }
   return { create };
