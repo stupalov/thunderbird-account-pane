@@ -29,12 +29,54 @@
 
 #accountpane-list [role="option"] {
   box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
   padding: 5px 8px;
   border-radius: 3px;
   cursor: default;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+#accountpane-list .accountpane-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#accountpane-list .accountpane-badges {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+#accountpane-list .accountpane-badges > span:not(:empty) {
+  box-sizing: border-box;
+  min-width: 16px;
+  padding: 1px 4px;
+  border-radius: var(--pb-folder-badge-radius, 1000px);
+  text-align: center;
+  font-size: var(--pb-folder-badge-size, 0.85em);
+}
+
+#accountpane-list .accountpane-badges > span:empty {
+  display: none;
+}
+
+#accountpane-list .accountpane-unread-count {
+  background: var(--folderpane-unread-count-background, var(--pb-folder-badge-bg, currentColor));
+  color: var(--folderpane-unread-count-text, var(--pb-folder-badge-text, Canvas));
+}
+
+#accountpane-list .accountpane-total-count {
+  background: var(--folderpane-total-count-background, var(--pb-folder-badge-bg, currentColor));
+  color: var(--folderpane-total-count-text, var(--pb-folder-badge-text, Canvas));
 }
 
 #accountpane-list [role="option"]:hover {

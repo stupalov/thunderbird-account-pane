@@ -16,6 +16,18 @@ var AccountPaneController = (() => {
     function render() {
       filter.apply(state.selectedAccountId);
       view.render(accounts(), state.selectedAccountId);
+      updateCounts();
+    }
+
+    function updateCounts() {
+      if (disposed) return;
+      let snapshot;
+      try {
+        snapshot = adapter.messageCounts();
+      } catch {
+        snapshot = { showTotal: false, accounts: {} };
+      }
+      view.updateCounts?.(snapshot);
     }
 
     function savePatch(patch, failed = () => {}) {
@@ -161,6 +173,13 @@ var AccountPaneController = (() => {
       disposers.push(adapter.onFolderChanged(folderChanged));
       disposers.push(adapter.onAccountsChanged(refresh));
       disposers.push(adapter.onModesChanged(refresh));
+      try {
+        if (adapter.onMessageCountsChanged) {
+          disposers.push(adapter.onMessageCountsChanged(updateCounts));
+        }
+      } catch {
+        // Count observation cannot prevent native account navigation.
+      }
       state.selectedAccountId = supported() ? model.initialAccount(accounts(),
         adapter.currentFolder()?.accountId, settings?.selectedAccountId) : null;
       if (state.selectedAccountId !== null &&

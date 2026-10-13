@@ -22,6 +22,11 @@ ALLOWED_FILES = (
     "experiment/account-pane.css",
     "_locales/en/messages.json",
     "_locales/ru/messages.json",
+    "icons/accountpane-16.png",
+    "icons/accountpane-32.png",
+    "icons/accountpane-48.png",
+    "icons/accountpane-64.png",
+    "icons/accountpane-128.png",
 )
 
 
@@ -67,11 +72,13 @@ def build(root):
     data = {name: json.loads(content, object_pairs_hook=unique_object)
             for name, content in inputs.items() if name.endswith(".json")}
     manifest = data["manifest.json"]
-    require(set(manifest) == {"manifest_version", "name", "version", "default_locale",
+    require(set(manifest) == {"manifest_version", "name", "version", "icons", "default_locale",
                               "description", "permissions", "background",
                               "browser_specific_settings", "experiment_apis"})
     require(manifest["background"] == {"scripts": ["background.js"]})
-    require(manifest["manifest_version"] == 2 and manifest["version"] == "0.1.1")
+    require(manifest["manifest_version"] == 2 and manifest["version"] == "0.1.2")
+    icons = {str(size): f"icons/accountpane-{size}.png" for size in (16, 32, 48, 64, 128)}
+    require(manifest["icons"] == icons and all(path in inputs for path in icons.values()))
     require(manifest["default_locale"] == "en" and manifest["permissions"] == ["storage"])
     require(manifest["browser_specific_settings"]["gecko"] == {
         "id": "accountpane@stupalov.github.io",
@@ -99,11 +106,12 @@ def build(root):
     message_ids = set(re.findall(r"__MSG_([A-Za-z0-9_]+)__", json.dumps(manifest)))
     for locale in ("en", "ru"):
         messages = data[f"_locales/{locale}/messages.json"]
-        for key in message_ids | {"extensionName", "extensionDescription", "accounts", "allAccounts"}:
+        for key in message_ids | {"extensionName", "extensionDescription", "accounts", "allAccounts",
+                                  "unreadCount", "totalCount"}:
             require(isinstance(messages[key]["message"], str) and bool(messages[key]["message"]))
     output_dir = root / "dist"
     require(not output_dir.is_symlink())
-    output = output_dir / "accountpane-0.1.1.xpi"
+    output = output_dir / "accountpane-0.1.2.xpi"
     require(not output.is_symlink())
     output_dir.mkdir(exist_ok=True)
     temporary = None

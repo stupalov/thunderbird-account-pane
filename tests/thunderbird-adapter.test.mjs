@@ -8,13 +8,16 @@ const Adapter = existsSync(path) ? loadScript(path, "AccountPaneAdapter") : null
 
 function fixture() {
   const observers = [], prefs = new Map(), folderListeners = new Set(), events = new Map();
-  const microtasks = [], displays = [];
+  const microtasks = [], displays = [], intListeners = new Set();
   const flags = { Inbox: 0x1000 };
   const makeAccount = (id, type = "imap", extra = {}) => {
     const server = { key: `server-${id}`, prettyName: `Account ${id}`, type, hidden: false,
       QueryInterface() { return { deferredToAccount: extra.deferredToAccount ?? "" }; }, ...extra };
     const root = { URI: `fixture://${id}/root`, isServer: true, flags: 0, server,
-      sortOrder: 0, localizedName: "Root", subFolders: [] };
+      sortOrder: 0, localizedName: "Root", subFolders: [],
+      unread: 0, total: 0,
+      getNumUnread(deep) { assert.equal(deep, true); return this.unread; },
+      getTotalMessages(deep) { assert.equal(deep, true); return this.total; } };
     server.rootFolder = root;
     return { key: id, incomingServer: server };
   };
@@ -43,7 +46,9 @@ function fixture() {
   }
   const window = {
     MutationObserver, queueMicrotask(callback) { microtasks.push(callback); },
-    document: { getElementById(id) { return id === "folderTree" ? tree : null; } },
+    document: { getElementById(id) { return id === "folderTree" ? tree : null; },
+      addEventListener(name, callback) { const set = events.get(name) ?? new Set(); set.add(callback); events.set(name, set); },
+      removeEventListener(name, callback) { events.get(name)?.delete(callback); } },
     folderPane: { activeModes: ["all", "favorite"], hideLocalFolders: false,
       getRowForFolder(uri) { return { uri }; } },
     gFolder: inbox,
@@ -53,20 +58,24 @@ function fixture() {
   };
   const MailServices = {
     accounts: { accounts },
+    mailSession: {
+      AddFolderListener(listener, mask) { assert.equal(mask, 8); intListeners.add(listener); },
+      RemoveFolderListener(listener) { intListeners.delete(listener); }
+    },
     mfn: { folderAdded: 1, folderDeleted: 2, folderRenamed: 4,
       addListener(listener, mask) { assert.equal(mask, 7); folderListeners.add(listener); },
       removeListener(listener) { folderListeners.delete(listener); } }
   };
-  const Services = { prefs: {
+  const Services = { xulStore: { getValue() { return "false"; } }, prefs: {
     addObserver(branch, observer) { const set = prefs.get(branch) ?? new Set(); set.add(observer); prefs.set(branch, set); },
     removeObserver(branch, observer) { prefs.get(branch)?.delete(observer); }
   } };
   assert.ok(Adapter?.create, "Thunderbird adapter factory must exist");
   const adapter = Adapter.create({ window, MailServices, Services,
-    Ci: { nsMsgFolderFlags: flags, nsIPop3IncomingServer: {} },
+    Ci: { nsMsgFolderFlags: flags, nsIPop3IncomingServer: {}, nsIFolderListener: { intPropertyChanged: 8 } },
     FolderUtils: { compareFolders(a, b) { return a.sortOrder - b.sortOrder || a.localizedName.localeCompare(b.localizedName); } }
   });
-  return { adapter, window, accounts, archive, inbox, nested, prefs, folderListeners,
+  return { adapter, window, accounts, archive, inbox, nested, prefs, folderListeners, intListeners, Services,
     events, observers, displays, makeFolder, MailServices,
     flush() { while (microtasks.length) { microtasks.shift()(); } },
     folderEvent() { for (const callback of events.get("folderURIChanged") ?? []) { callback({ detail: "ignore-untrusted-detail" }); } }
@@ -86,6 +95,75 @@ test("native account order and stable server ownership exclude deferred chat hid
   assert.equal(f.adapter.accountForRow({ dataset: { serverKey: "smart-server" } }), null);
   f.window.folderPane.hideLocalFolders = true;
   assert.deepEqual(Array.from(f.adapter.listAccounts(), account => account.id), ["b", "a"]);
+});
+
+test("root recursive counts include collapsed physical folders and exclude invisible accounts", () => {
+  const f = fixture();
+  f.accounts[0].incomingServer.rootFolder.unread = 3;
+  f.accounts[0].incomingServer.rootFolder.total = 10;
+  f.accounts[1].incomingServer.rootFolder.unread = 4;
+  f.accounts[1].incomingServer.rootFolder.total = 12;
+  f.accounts[2].incomingServer.rootFolder.unread = 2;
+  f.accounts[2].incomingServer.rootFolder.total = 5;
+  f.accounts[5].incomingServer.rootFolder.unread = 99;
+  assert.deepEqual(structuredClone(f.adapter.messageCounts()), {
+    showTotal: false, accounts: {
+      b: { unread: 3, total: 10 }, a: { unread: 4, total: 12 }, local: { unread: 2, total: 5 }
+    }
+  });
+  f.window.folderPane.hideLocalFolders = true;
+  assert.deepEqual(Object.keys(f.adapter.messageCounts().accounts), ["b", "a"]);
+});
+
+test("unavailable native count is unknown without affecting other metrics or accounts", () => {
+  const f = fixture();
+  const root = f.accounts[1].incomingServer.rootFolder;
+  root.unread = -1;
+  root.total = 8;
+  Object.defineProperty(f.accounts[0].incomingServer.rootFolder, "total", { get() { throw Error("unavailable"); } });
+  const counts = f.adapter.messageCounts().accounts;
+  assert.deepEqual(structuredClone(counts.a), { unread: null, total: 8 });
+  assert.deepEqual(structuredClone(counts.b), { unread: 0, total: null });
+});
+
+test("native integer count changes coalesce separately and stop after disposal", () => {
+  const f = fixture(), seen = [];
+  const stop = f.adapter.onMessageCountsChanged(() => seen.push(f.adapter.messageCounts()));
+  for (const listener of f.intListeners) {
+    listener.onFolderIntPropertyChanged(f.inbox, "TotalUnreadMessages");
+    listener.onFolderIntPropertyChanged(f.inbox, "TotalMessages");
+    listener.onFolderIntPropertyChanged(f.inbox, "Other");
+  }
+  f.flush();
+  assert.equal(seen.length, 1);
+  for (const listener of f.intListeners) listener.onFolderIntPropertyChanged(f.inbox, "TotalUnreadMessages");
+  stop(); f.flush();
+  assert.equal(seen.length, 1);
+  assert.equal(f.intListeners.size, 0);
+});
+
+test("native total toggle updates visibility with or without existing native rows", () => {
+  const f = fixture(), seen = [];
+  let visible = false;
+  f.Services.xulStore.getValue = (url, id, attribute) => {
+    assert.deepEqual([url, id, attribute],
+      ["chrome://messenger/content/messenger.xhtml", "totalMsgCount", "visible"]);
+    return visible ? "true" : "false";
+  };
+  f.adapter.onMessageCountsChanged(() => seen.push(f.adapter.messageCounts().showTotal));
+  visible = true;
+  for (const callback of f.events.get("command") ?? []) {
+    callback({ target: { id: "folderPaneHeaderToggleTotalCount" } });
+  }
+  f.flush();
+  assert.deepEqual(seen, [true]);
+  visible = false;
+  for (const observer of f.observers) {
+    observer.callback([{ type: "attributes", attributeName: "hidden",
+      target: { classList: { contains(name) { return name === "total-count"; } } } }]);
+  }
+  f.flush();
+  assert.deepEqual(seen, [true, false]);
 });
 
 test("folder traversal uses flags and native sibling ordering without reading messages", () => {

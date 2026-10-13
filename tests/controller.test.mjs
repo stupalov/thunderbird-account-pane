@@ -8,9 +8,9 @@ const model = loadScript("addon/lib/model.js", "AccountPaneModel");
 const controllerPath = "addon/experiment/controller.js";
 const Controller = existsSync(controllerPath) ? loadScript(controllerPath, "AccountPaneController") : null;
 
-function fixture({ settings = {}, current = null, modes = ["all", "favorite"], canDisplayFolder = () => true, saveResult } = {}) {
+function fixture({ settings = {}, current = null, modes = ["all", "favorite"], canDisplayFolder = () => true, saveResult, trackCounts = false } = {}) {
   const data = makeModelFixture();
-  const listeners = { folder: new Set(), accounts: new Set(), modes: new Set() };
+  const listeners = { folder: new Set(), accounts: new Set(), modes: new Set(), counts: new Set() };
   const effects = [], saved = [], displayCalls = [];
   const subscribe = kind => callback => {
     listeners[kind].add(callback);
@@ -26,6 +26,9 @@ function fixture({ settings = {}, current = null, modes = ["all", "favorite"], c
     displayFolder(uri) { displayCalls.push(uri); effects.push(["display", uri]); },
     onFolderChanged: subscribe("folder"), onAccountsChanged: subscribe("accounts"),
     onModesChanged: subscribe("modes"),
+    onMessageCountsChanged: subscribe("counts"),
+    messageCounts: () => ({ showTotal: false, accounts: {} }),
+    emitCounts() { for (const callback of listeners.counts) callback(); },
     emitFolder(folder) { current = folder; for (const callback of listeners.folder) { callback(folder); } },
     emitAccounts() { for (const callback of listeners.accounts) { callback(); } },
     emitModes(value) { modes = value; for (const callback of listeners.modes) { callback(); } }
@@ -33,12 +36,28 @@ function fixture({ settings = {}, current = null, modes = ["all", "favorite"], c
   assert.ok(Controller?.create, "navigation controller factory must exist");
   const controller = Controller.create({ adapter, model, settings,
     filter: { apply(id) { effects.push(["filter", id]); } },
-    view: { render(accounts, id) { effects.push(["render", id, accounts.map(account => account.id), accounts.map(account => account.name)]); } },
+    view: { render(accounts, id) { effects.push(["render", id, accounts.map(account => account.id), accounts.map(account => account.name)]); },
+      updateCounts(snapshot) { if (trackCounts) effects.push(["counts", snapshot.showTotal]); } },
     save(patch) { saved.push(structuredClone(patch)); return saveResult?.(patch); }
   });
   const selected = () => effects.filter(effect => effect[0] === "render").at(-1)[1];
   return { controller, adapter, data, listeners, effects, saved, displayCalls, selected };
 }
+
+test("count notifications update badges without filtering, rendering, navigation, or storage", () => {
+  const f = fixture({ trackCounts: true });
+  f.controller.selectAccount("a");
+  assert.equal(f.selected(), "a");
+  f.effects.length = 0; f.saved.length = 0; f.displayCalls.length = 0;
+  f.adapter.emitCounts();
+  assert.deepEqual(f.effects, [["counts", false]]);
+  assert.deepEqual(f.saved, []);
+  assert.deepEqual(f.displayCalls, []);
+  f.controller.dispose();
+  f.effects.length = 0;
+  f.adapter.emitCounts();
+  assert.deepEqual(f.effects, []);
+});
 
 test("switching back restores the last actually opened account folder", () => {
   const f = fixture();

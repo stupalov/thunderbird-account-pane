@@ -23,6 +23,7 @@ var AccountPaneView = (() => {
 
     let entries = [];
     let disposed = false;
+    let lastCounts = { showTotal: false, accounts: {} };
 
     function entryFor(target) {
       return entries.find(entry => entry.option.contains(target));
@@ -92,16 +93,58 @@ var AccountPaneView = (() => {
         option.setAttribute("role", "option");
         option.setAttribute("aria-selected", String(account.id === selected));
         const label = document.createElement("span");
+        label.className = "accountpane-name";
         label.textContent = account.name;
-        option.append(label);
-        return { id: account.id, option };
+        const badges = document.createElement("span");
+        badges.className = "accountpane-badges";
+        badges.setAttribute("aria-hidden", "true");
+        const unread = document.createElement("span");
+        unread.className = "accountpane-unread-count";
+        const total = document.createElement("span");
+        total.className = "accountpane-total-count";
+        badges.append(unread, total);
+        option.append(label, badges);
+        return { id: account.id, name: account.name, option, unread, total };
       });
       const tabStop = entries.find(entry => previouslyFocused && entry.id === previouslyFocused.id) ||
         entries.find(entry => entry.id === selected);
       setTabStop(tabStop);
       list.replaceChildren(...entries.map(entry => entry.option));
+      updateCounts(lastCounts);
       if (previouslyFocused) {
         tabStop.option.focus();
+      }
+    }
+
+    function updateCounts(snapshot) {
+      if (disposed) return;
+      lastCounts = snapshot;
+      const visible = entries.filter(entry => entry.id !== null);
+      const all = metric => {
+        let sum = 0;
+        for (const entry of visible) {
+          const value = snapshot.accounts?.[entry.id]?.[metric];
+          if (!Number.isSafeInteger(value) || value < 0) return null;
+          sum += value;
+          if (!Number.isSafeInteger(sum)) return null;
+        }
+        return sum;
+      };
+      const aggregate = { unread: all("unread"), total: all("total") };
+      const description = (template, value) => template?.replace("{count}", String(value));
+      for (const entry of entries) {
+        const counts = entry.id === null ? aggregate : snapshot.accounts?.[entry.id];
+        const unread = counts?.unread;
+        const total = counts?.total;
+        const showUnread = Number.isSafeInteger(unread) && unread > 0;
+        const showTotal = snapshot.showTotal && Number.isSafeInteger(total) && total >= 0;
+        entry.unread.textContent = showUnread ? String(unread) : "";
+        entry.total.textContent = showTotal ? String(total) : "";
+        const parts = [entry.name];
+        if (showUnread) parts.push(description(labels.unreadCount, unread));
+        if (showTotal) parts.push(description(labels.totalCount, total));
+        entry.option.setAttribute("aria-label", parts.filter(Boolean).join(", "));
+        entry.option.setAttribute("title", parts.filter(Boolean).join(", "));
       }
     }
 
@@ -120,7 +163,7 @@ var AccountPaneView = (() => {
       style.remove();
       entries = [];
     }
-    return { render, dispose };
+    return { render, updateCounts, dispose };
   }
   return { create };
 })();

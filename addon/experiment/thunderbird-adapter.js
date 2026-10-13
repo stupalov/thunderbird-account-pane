@@ -34,6 +34,40 @@ var AccountPaneAdapter = (() => {
       return accountForServer(row?.dataset?.serverKey);
     }
 
+    function messageCounts() {
+      const accounts = {};
+      const visible = new Set(listAccounts().map(account => account.id));
+      for (const account of MailServices.accounts.accounts) {
+        if (!visible.has(account.key)) continue;
+        try {
+          const server = account.incomingServer;
+          const root = server.rootFolder;
+          const count = method => {
+            try {
+              const value = root[method](true);
+              return Number.isSafeInteger(value) && value >= 0 ? value : null;
+            } catch {
+              return null;
+            }
+          };
+          accounts[account.key] = {
+            unread: count("getNumUnread"), total: count("getTotalMessages")
+          };
+        } catch {
+          // A missing server/root cannot supply reliable counts.
+          accounts[account.key] = { unread: null, total: null };
+        }
+      }
+      let showTotal = false;
+      try {
+        showTotal = Services.xulStore.getValue("chrome://messenger/content/messenger.xhtml",
+          "totalMsgCount", "visible") === "true";
+      } catch {
+        // Match the native default when XULStore is unavailable.
+      }
+      return { showTotal, accounts };
+    }
+
     function listFolders(accountId) {
       const visible = listAccounts().find(account => account.id === accountId);
       if (!visible) {
@@ -235,6 +269,41 @@ var AccountPaneAdapter = (() => {
       });
     }
 
+    function onMessageCountsChanged(callback) {
+      return subscription((removers, active) => {
+        let pending = false;
+        const notify = () => {
+          if (!active() || pending) return;
+          pending = true;
+          window.queueMicrotask(() => {
+            pending = false;
+            if (active()) callback();
+          });
+        };
+        const listener = {
+          onFolderIntPropertyChanged(folder, property) {
+            if (property === "TotalUnreadMessages" || property === "TotalMessages") notify();
+          }
+        };
+        MailServices.mailSession.AddFolderListener(listener, Ci.nsIFolderListener.intPropertyChanged);
+        removers.push(() => MailServices.mailSession.RemoveFolderListener(listener));
+        const tree = window.document.getElementById("folderTree");
+        const observer = new window.MutationObserver(records => {
+          if (records.some(record => record.type === "attributes" &&
+              record.attributeName === "hidden" && record.target?.classList?.contains("total-count"))) {
+            notify();
+          }
+        });
+        removers.push(() => observer.disconnect());
+        observer.observe(tree, { attributes: true, attributeFilter: ["hidden"], subtree: true });
+        const onToggle = event => {
+          if (event.target?.id === "folderPaneHeaderToggleTotalCount") notify();
+        };
+        window.document.addEventListener("command", onToggle, true);
+        removers.push(() => window.document.removeEventListener("command", onToggle, true));
+      });
+    }
+
     function dispose() {
       if (!disposed) {
         disposed = true;
@@ -244,7 +313,8 @@ var AccountPaneAdapter = (() => {
       }
     }
     return { listAccounts, listFolders, currentFolder, selectedFolders, activeModes, canDisplayFolder,
-      displayFolder, accountForRow, onFolderChanged, onAccountsChanged, onModesChanged, dispose };
+      displayFolder, accountForRow, messageCounts, onMessageCountsChanged,
+      onFolderChanged, onAccountsChanged, onModesChanged, dispose };
   }
   return { create };
 })();

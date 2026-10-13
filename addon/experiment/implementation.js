@@ -63,7 +63,9 @@ var accountPane = class extends ExtensionCommon.ExtensionAPI {
     });
     if (this._disposed || generation !== this._generation || !this._fire) return;
     const labels = { accounts: this.extension.localeData.localizeMessage("accounts"),
-      allAccounts: this.extension.localeData.localizeMessage("allAccounts") };
+      allAccounts: this.extension.localeData.localizeMessage("allAccounts"),
+      unreadCount: this.extension.localeData.localizeMessage("unreadCount"),
+      totalCount: this.extension.localeData.localizeMessage("totalCount") };
     const attachPane = window => {
       if (this._disposed || generation !== this._generation || !this._fire) return () => {};
       let adapter, filter, view, controller;

@@ -121,6 +121,39 @@ test("renders All Accounts first, native order, and selected state without dupli
   assert.equal(descendants(f.folderPane).filter(node => node.id === "accountpane-accounts").length, 1);
 });
 
+test("count updates preserve option identity, focus, and selection while aggregating visible accounts", () => {
+  const f = fixture({ accounts: "Accounts", allAccounts: "All Accounts",
+    unreadCount: "Unread messages: {count}", totalCount: "Total messages: {count}" });
+  f.view.render(accounts, "a");
+  const rows = options(f);
+  rows[1].focus();
+  f.view.updateCounts({ showTotal: true, accounts: {
+    a: { unread: 2, total: 5 }, local: { unread: 3, total: 9 }, hidden: { unread: 80, total: 90 }
+  } });
+  assert.deepEqual(options(f), rows);
+  assert.equal(f.document.activeElement, rows[1]);
+  assert.deepEqual(rows.map(row => row.getAttribute("aria-selected")), ["false", "true", "false"]);
+  assert.deepEqual(rows.map(row => row.textContent), ["All Accounts514", "Fixture A25", "Local Folders39"]);
+  assert.equal(rows[1].getAttribute("aria-label"), "Fixture A, Unread messages: 2, Total messages: 5");
+  assert.deepEqual(f.selected, []);
+});
+
+test("unknown metrics hide affected badges including incomplete All Accounts totals", () => {
+  const f = fixture({ accounts: "Accounts", allAccounts: "All Accounts",
+    unreadCount: "Unread messages: {count}", totalCount: "Total messages: {count}" });
+  f.view.render(accounts, null);
+  f.view.updateCounts({ showTotal: true, accounts: {
+    a: { unread: 0, total: 0 }, local: { unread: null, total: 7 }
+  } });
+  const rows = options(f);
+  assert.deepEqual(rows.map(row => row.textContent), ["All Accounts7", "Fixture A0", "Local Folders7"]);
+  assert.equal(rows[0].getAttribute("aria-label"), "All Accounts, Total messages: 7");
+  f.view.updateCounts({ showTotal: false, accounts: {
+    a: { unread: 1, total: 0 }, local: { unread: 2, total: 7 }
+  } });
+  assert.deepEqual(rows.map(row => row.textContent), ["All Accounts3", "Fixture A1", "Local Folders2"]);
+});
+
 test("inserts above the native tree without changing host children or splitter state", () => {
   const f = fixture();
   const section = f.document.getElementById("accountpane-accounts");
@@ -136,7 +169,7 @@ test("account names are literal text and never become markup or element identifi
   f.view.render([{ ...accounts[0], name: '<img src=x onerror="throw 1"> #fixture' }], "a");
   const row = options(f)[1];
   assert.equal(row.textContent, '<img src=x onerror="throw 1"> #fixture');
-  assert.deepEqual(row.children.map(child => child.tagName), ["span"]);
+  assert.deepEqual(row.children.map(child => child.tagName), ["span", "span"]);
   assert.equal(row.id, "");
   assert.equal(row.getAttribute("class"), null);
 });
