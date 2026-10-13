@@ -71,7 +71,7 @@ def build(root):
                               "description", "permissions", "background",
                               "browser_specific_settings", "experiment_apis"})
     require(manifest["background"] == {"scripts": ["background.js"]})
-    require(manifest["manifest_version"] == 2 and manifest["version"] == "0.1.0")
+    require(manifest["manifest_version"] == 2 and manifest["version"] == "0.1.1")
     require(manifest["default_locale"] == "en" and manifest["permissions"] == ["storage"])
     require(manifest["browser_specific_settings"]["gecko"] == {
         "id": "accountpane@stupalov.github.io",
@@ -103,7 +103,7 @@ def build(root):
             require(isinstance(messages[key]["message"], str) and bool(messages[key]["message"]))
     output_dir = root / "dist"
     require(not output_dir.is_symlink())
-    output = output_dir / "accountpane-0.1.0.xpi"
+    output = output_dir / "accountpane-0.1.1.xpi"
     require(not output.is_symlink())
     output_dir.mkdir(exist_ok=True)
     temporary = None

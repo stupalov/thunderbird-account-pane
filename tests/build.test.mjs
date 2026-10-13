@@ -21,15 +21,15 @@ test("build emits only reviewed addon files and validates archived manifest", ()
     }
     const result = f.run(); assert.equal(result.status, 0, result.stderr);
     const inspect = spawnSync("python3", ["-c", "import json,zipfile,sys; z=zipfile.ZipFile(sys.argv[1]); print(json.dumps({'files':z.namelist(),'manifest':json.loads(z.read('manifest.json'))}))",
-      join(f.root, "dist/accountpane-0.1.0.xpi")], { encoding: "utf8" });
+      join(f.root, "dist/accountpane-0.1.1.xpi")], { encoding: "utf8" });
     assert.equal(inspect.status, 0, inspect.stderr); const artifact = JSON.parse(inspect.stdout);
     assert.deepEqual(artifact.files, ["_locales/en/messages.json", "_locales/ru/messages.json", "background.js",
       "experiment/account-pane.css", "experiment/account-view.js", "experiment/controller.js", "experiment/implementation.js",
       "experiment/lifecycle.js", "experiment/schema.json", "experiment/thunderbird-adapter.js", "experiment/tree-filter.js", "lib/model.js", "manifest.json"]);
-    assert.equal(artifact.manifest.version, "0.1.0");
+    assert.equal(artifact.manifest.version, "0.1.1");
     assert.equal(artifact.manifest.browser_specific_settings.gecko.id, "accountpane@stupalov.github.io");
-    const first = readFileSync(join(f.root, "dist/accountpane-0.1.0.xpi"));
-    assert.equal(f.run().status, 0); assert.deepEqual(readFileSync(join(f.root, "dist/accountpane-0.1.0.xpi")), first);
+    const first = readFileSync(join(f.root, "dist/accountpane-0.1.1.xpi"));
+    assert.equal(f.run().status, 0); assert.deepEqual(readFileSync(join(f.root, "dist/accountpane-0.1.1.xpi")), first);
   } finally { f.dispose(); }
 });
 test("packaged compatibility accepts app 157.0.1 against its platform milestone 157.0", () => {
@@ -38,7 +38,7 @@ test("packaged compatibility accepts app 157.0.1 against its platform milestone 
     const result = f.run();
     assert.equal(result.status, 0, result.stderr);
     const inspect = spawnSync("python3", ["-c", "import json,zipfile,sys; z=zipfile.ZipFile(sys.argv[1]); print(json.dumps(json.loads(z.read('manifest.json'))['browser_specific_settings']['gecko']))",
-      join(f.root, "dist/accountpane-0.1.0.xpi")], { encoding: "utf8" });
+      join(f.root, "dist/accountpane-0.1.1.xpi")], { encoding: "utf8" });
     assert.equal(inspect.status, 0, inspect.stderr);
     const compatibility = JSON.parse(inspect.stdout);
     // XPIInstall targets TOOLKIT_ID: XPIDatabase compares aPlatformVersion,
@@ -74,7 +74,7 @@ test("build rejects file symlinks and symlinked parent directories without emitt
         symlinkSync(join(f.root, "outside.js"), join(f.root, "addon/background.js"));
       }
       const result = f.run(); assert.notEqual(result.status, 0); assert.match(result.stderr, /ACCOUNTPANE_BUILD_INVALID_INPUT/);
-      assert.ok(!existsSync(join(f.root, "dist/accountpane-0.1.0.xpi")));
+      assert.ok(!existsSync(join(f.root, "dist/accountpane-0.1.1.xpi")));
     } finally { f.dispose(); }
   }
 });
@@ -96,7 +96,7 @@ test("build rejects malformed JSON, unsafe manifest references and missing local
         schema[0].functions[0].parameters[0].$ref = "Unknown"; writeFileSync(schemaFile, JSON.stringify(schema));
       }
       const result = f.run(); assert.notEqual(result.status, 0); assert.match(result.stderr, /ACCOUNTPANE_BUILD_INVALID_INPUT/);
-      assert.ok(!existsSync(join(f.root, "dist/accountpane-0.1.0.xpi")));
+      assert.ok(!existsSync(join(f.root, "dist/accountpane-0.1.1.xpi")));
     } finally { f.dispose(); }
   }
 });
