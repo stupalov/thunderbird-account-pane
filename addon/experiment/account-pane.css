@@ -25,8 +25,10 @@
 #accountpane-list {
   flex: 0 0 auto;
   margin: 0;
-  padding: 0 4px 4px;
+  padding: 0 0 4px;
   list-style: none;
+  overflow: hidden;
+  scrollbar-gutter: stable;
 }
 
 #accountpane-list [role="group"] {
@@ -43,27 +45,48 @@
   box-sizing: border-box;
   display: flex;
   align-items: center;
-  gap: 6px;
   min-width: 0;
-  padding: 5px 8px;
-  border-radius: 3px;
+  min-block-size: var(--list-item-min-height, 26px);
+  margin-inline: 3px;
+  padding-block: 0;
+  padding-inline: 0;
+  border: 1px solid var(--list-container-border, transparent);
+  border-radius: var(--listbox-border-radius, 3px);
   cursor: default;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+#accountpane-list .accountpane-root > .accountpane-row {
+  padding-block: 5px;
+}
+
 #accountpane-list .accountpane-child > .accountpane-row {
-  padding-inline-start: 42px;
+  padding-inline-start: 16px;
+}
+
+#accountpane-list .accountpane-child > .accountpane-row::before {
+  content: "";
+  flex: 0 0 var(--list-item-buttons-size, 22px);
+  inline-size: var(--list-item-buttons-size, 22px);
+  block-size: var(--list-item-buttons-size, 22px);
 }
 
 #accountpane-list .accountpane-disclosure {
   box-sizing: border-box;
-  flex: 0 0 12px;
-  width: 12px;
-  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 var(--list-item-buttons-size, 22px);
+  inline-size: var(--list-item-buttons-size, 22px);
+  block-size: var(--list-item-buttons-size, 22px);
+  min-width: 0;
+  min-inline-size: 0;
+  max-width: var(--list-item-buttons-size, 22px);
+  max-inline-size: var(--list-item-buttons-size, 22px);
   margin: 0;
-  padding: 2px;
+  padding: 0;
   border: 0;
   color: inherit;
   background: transparent;
@@ -72,14 +95,26 @@
 
 #accountpane-list .accountpane-disclosure-icon {
   display: block;
-  width: 8px;
+  width: 12px;
   height: 12px;
+  content: var(--icon-nav-down-sm);
+  -moz-context-properties: fill, stroke;
   fill: currentColor;
-  transition: transform 80ms ease;
+  stroke: currentColor;
 }
 
-#accountpane-list .accountpane-root[aria-expanded="true"] > .accountpane-row .accountpane-disclosure-icon {
+#accountpane-list .accountpane-root[aria-expanded="false"] > .accountpane-row .accountpane-disclosure-icon {
+  transform: rotate(-90deg);
+}
+
+#accountpane-list .accountpane-root[aria-expanded="false"] > .accountpane-row .accountpane-disclosure-icon:dir(rtl) {
   transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  #accountpane-list .accountpane-disclosure-icon {
+    transition: transform var(--transition-duration, 200ms) var(--transition-timing, ease);
+  }
 }
 
 #accountpane-list .accountpane-icon {
@@ -93,6 +128,7 @@
 #accountpane-list .accountpane-name {
   flex: 1 1 auto;
   min-width: 0;
+  margin-inline: 7px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -101,7 +137,7 @@
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 0;
   font-variant-numeric: tabular-nums;
 }
 
@@ -110,6 +146,7 @@
   min-width: 16px;
   padding: 1px 4px;
   border-radius: var(--pb-folder-badge-radius, 1000px);
+  margin-inline-end: 6px;
   text-align: center;
   font-size: var(--pb-folder-badge-size, 0.85em);
 }
@@ -129,10 +166,12 @@
 }
 
 #accountpane-list [role="treeitem"] > .accountpane-row:hover {
+  border-color: var(--list-container-border-hover, transparent);
   background: var(--pb-sidebar-hover, var(--treeitem-background-hover, transparent));
 }
 
 #accountpane-list [role="treeitem"][aria-selected="true"] > .accountpane-row {
+  border-color: var(--list-container-border-selected-focused, transparent);
   background: var(--pb-selection-bg, var(--treeitem-background-active, Highlight));
   color: var(--pb-selection-text, var(--treeitem-text-active, HighlightText));
 }

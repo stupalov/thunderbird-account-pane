@@ -9,7 +9,7 @@ var AccountPaneView = (() => {
     cloud: ["M3.2 12.8h8.5a3.3 3.3 0 0 0 .2-6.6A4.5 4.5 0 0 0 3.5 7.6a2.6 2.6 0 0 0-.3 5.2Z"],
     monitor: ["M2 2.5h12v8H9v1.5h2v1.5H5V12h2v-1.5H2v-8Zm1.5 1.5v5h9V4h-9Z"]
   };
-  const DISCLOSURE_PATH = "M5 3.5 10 8l-5 4.5Z";
+  const DISCLOSURE_ICON = "chrome://messenger/skin/icons/new/nav-down-sm.svg";
 
   function createSvg(document, paths, className, kind) {
     const svg = document.createElementNS(SVG_NS, "svg");
@@ -92,7 +92,11 @@ var AccountPaneView = (() => {
         disclosure.className = "accountpane-disclosure";
         disclosure.setAttribute("type", "button");
         disclosure.tabIndex = -1;
-        disclosure.append(createSvg(document, [DISCLOSURE_PATH], "accountpane-disclosure-icon"));
+        const disclosureIcon = document.createElement("img");
+        disclosureIcon.className = "accountpane-disclosure-icon";
+        disclosureIcon.setAttribute("src", DISCLOSURE_ICON);
+        disclosureIcon.setAttribute("alt", "");
+        disclosure.append(disclosureIcon);
         ownRow.append(disclosure);
       }
       const kind = root ? "all" : account.type === "none" || account.local ? "monitor" : "cloud";

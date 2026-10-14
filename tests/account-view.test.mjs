@@ -180,12 +180,16 @@ test("heading matches the live native mode heading and leaves host layout intact
   assert.equal(f.document.head.children[0].textContent, "/* fixture CSS */");
 });
 
-test("names stay literal and owned inline SVG icons distinguish aggregate network and Local accounts", () => {
+test("names stay literal while the disclosure uses the native image and owned SVGs distinguish account types", () => {
   const f = fixture();
   f.view.render([{ ...accounts[0], name: '<img src=x onerror="throw 1"> #fixture' }, accounts[1]], "a");
   const items = treeItems(f), names = items.map(item => part(item, "accountpane-name"));
   assert.equal(names[1].textContent, '<img src=x onerror="throw 1"> #fixture');
-  assert.ok(!descendants(section(f)).some(node => node.tagName === "img"));
+  const images = descendants(section(f)).filter(node => node.tagName === "img");
+  assert.equal(images.length, 1);
+  assert.equal(images[0], part(items[0], "accountpane-disclosure-icon"));
+  assert.equal(images[0].getAttribute("src"), "chrome://messenger/skin/icons/new/nav-down-sm.svg");
+  assert.equal(images[0].getAttribute("alt"), "");
   const icons = items.map(item => part(item, "accountpane-icon"));
   assert.deepEqual(icons.map(icon => icon.getAttribute("data-accountpane-icon")), ["all", "cloud", "monitor"]);
   assert.ok(icons.every(icon => icon.namespaceURI === SVG_NS && icon.getAttribute("aria-hidden") === "true"));
