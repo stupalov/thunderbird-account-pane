@@ -6,6 +6,7 @@ var AccountPaneController = (() => {
     const state = { selectedAccountId: null };
     let lastFolders = { ...settings?.lastFolders };
     const pendingFolders = new Map();
+    let accountsExpanded = settings?.accountsExpanded !== false;
 
     const accounts = () => model.visibleAccounts(adapter.listAccounts());
     const supported = () => model.allowsFiltering(adapter.activeModes());
@@ -48,6 +49,15 @@ var AccountPaneController = (() => {
       if (changed) {
         savePatch({ selectedAccountId: id });
       }
+    }
+
+    function setAccountsExpanded(value) {
+      if (disposed || typeof value !== "boolean" || accountsExpanded === value) {
+        return;
+      }
+      accountsExpanded = value;
+      view.setExpanded(value);
+      savePatch({ accountsExpanded: value });
     }
 
     function selectAccount(id) {
@@ -186,12 +196,13 @@ var AccountPaneController = (() => {
           !displayableFolders(state.selectedAccountId).some(folder => folder.available)) {
         state.selectedAccountId = null;
       }
+      view.setExpanded(accountsExpanded);
       render();
     } catch (error) {
       dispose();
       throw error;
     }
-    return { selectAccount, followFolder, updateSettings, dispose };
+    return { selectAccount, followFolder, setAccountsExpanded, updateSettings, dispose };
   }
   return { create };
 })();

@@ -20,7 +20,8 @@ test("queued writes preserve latest account and both folder histories", async ()
   const a = writer.save({ selectedAccountId: "a", lastFolder: { accountId: "a", uri: "fixture://a/one" } });
   const b = writer.save({ selectedAccountId: "b", lastFolder: { accountId: "b", uri: "fixture://b/two" } });
   await tick(); assert.equal(writes.length, 1); release(); await writer.flush(); await Promise.all([a, b]);
-  assert.deepEqual(storage.value, { version: 1, selectedAccountId: "b", lastFolders: { a: "fixture://a/one", b: "fixture://b/two" } });
+  assert.deepEqual(storage.value, { version: 1, selectedAccountId: "b", accountsExpanded: true,
+    lastFolders: { a: "fixture://a/one", b: "fixture://b/two" } });
   assert.deepEqual(initial.lastFolders, {});
 });
 test("failed writes reject generically, preserve persisted state, and next writes recover", async () => {
@@ -37,8 +38,23 @@ test("caller mutation and malformed initial settings cannot introduce arbitrary 
     { version: 2, selectedAccountId: 7, lastFolders: { a: 42, b: "fixture://b/old" }, password: "ignored" });
   const patch = { lastFolder: { accountId: "a", uri: "fixture://a/one" }, arbitrary: "ignored" };
   const operation = writer.save(patch); patch.lastFolder.uri = "fixture://a/mutated"; await operation;
-  assert.deepEqual(writes, [{ settings: { version: 1, selectedAccountId: null,
+  assert.deepEqual(writes, [{ settings: { version: 1, selectedAccountId: null, accountsExpanded: true,
     lastFolders: { b: "fixture://b/old", a: "fixture://a/one" } } }]);
+});
+test("expansion defaults true for legacy or invalid settings and accepts only boolean patches", async () => {
+  const storage = storageModule();
+  assert.deepEqual(plain(storage.normalize({ selectedAccountId: null, lastFolders: {} })),
+    { version: 1, selectedAccountId: null, accountsExpanded: true, lastFolders: {} });
+  assert.equal(storage.normalize({ accountsExpanded: false }).accountsExpanded, false);
+  assert.equal(storage.normalize({ accountsExpanded: "false" }).accountsExpanded, true);
+  assert.deepEqual(plain(storage.copyPatch({ accountsExpanded: false, arbitrary: true })),
+    { accountsExpanded: false });
+  assert.deepEqual(plain(storage.copyPatch({ accountsExpanded: 0 })), {});
+  const writes = [];
+  const writer = storage.createWriter({ async set(value) { writes.push(plain(value.settings)); } },
+    { selectedAccountId: null, accountsExpanded: true, lastFolders: {} });
+  await writer.save({ accountsExpanded: false });
+  assert.deepEqual(writes, [{ version: 1, selectedAccountId: null, accountsExpanded: false, lastFolders: {} }]);
 });
 function backgroundFixture({ rejectBroadcast = false, readFails = false } = {}) {
   storageModule(); let listener, releaseRead, releaseBroadcast; const events = [], logs = [];
@@ -75,6 +91,6 @@ test("broadcast failure rejects its listener promise and following snapshot stil
 test("storage read failure starts with safe defaults and fixed diagnostic", async () => {
   const f = backgroundFixture({ readFails: true }); f.releaseRead(); await tick();
   assert.deepEqual(f.events.find(v => Array.isArray(v) && v[0] === "start")[1],
-    { version: 1, selectedAccountId: null, lastFolders: {} });
+    { version: 1, selectedAccountId: null, accountsExpanded: true, lastFolders: {} });
   assert.deepEqual(f.logs, ["ACCOUNTPANE_STORAGE_READ_FAILED"]);
 });

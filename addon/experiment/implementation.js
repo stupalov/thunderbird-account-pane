@@ -64,6 +64,8 @@ var accountPane = class extends ExtensionCommon.ExtensionAPI {
     if (this._disposed || generation !== this._generation || !this._fire) return;
     const labels = { accounts: this.extension.localeData.localizeMessage("accounts"),
       allAccounts: this.extension.localeData.localizeMessage("allAccounts"),
+      expandAccounts: this.extension.localeData.localizeMessage("expandAccounts"),
+      collapseAccounts: this.extension.localeData.localizeMessage("collapseAccounts"),
       unreadCount: this.extension.localeData.localizeMessage("unreadCount"),
       totalCount: this.extension.localeData.localizeMessage("totalCount") };
     const attachPane = window => {
@@ -83,7 +85,8 @@ var accountPane = class extends ExtensionCommon.ExtensionAPI {
         adapter = scope.AccountPaneAdapter.create({ window, MailServices, Services, Ci, FolderUtils });
         view = scope.AccountPaneView.create({ document: window.document,
           folderPane: window.document.getElementById("folderPane"), labels, cssText,
-          onSelect: id => controller?.selectAccount(id) });
+          onSelect: id => controller?.selectAccount(id),
+          onExpandedChanged: value => controller?.setAccountsExpanded(value) });
         filter = scope.AccountPaneTreeFilter.attach({ window,
           tree: window.document.getElementById("folderTree"),
           accountForRow: row => adapter.accountForRow(row), followTarget: id => controller?.followFolder(id) });

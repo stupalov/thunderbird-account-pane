@@ -36,7 +36,8 @@ function fixture({ settings = {}, current = null, modes = ["all", "favorite"], c
   assert.ok(Controller?.create, "navigation controller factory must exist");
   const controller = Controller.create({ adapter, model, settings,
     filter: { apply(id) { effects.push(["filter", id]); } },
-    view: { render(accounts, id) { effects.push(["render", id, accounts.map(account => account.id), accounts.map(account => account.name)]); },
+    view: { setExpanded(value) { effects.push(["expanded", value]); },
+      render(accounts, id) { effects.push(["render", id, accounts.map(account => account.id), accounts.map(account => account.name)]); },
       updateCounts(snapshot) { if (trackCounts) effects.push(["counts", snapshot.showTotal]); } },
     save(patch) { saved.push(structuredClone(patch)); return saveResult?.(patch); }
   });
@@ -412,4 +413,55 @@ test("removed account drops pending history before a new shared snapshot", () =>
   f.controller.updateSettings({ lastFolders: { a: "fixture://a/renamed-inbox" } });
   f.controller.selectAccount("a");
   assert.equal(f.displayCalls.at(-1), "fixture://a/renamed-inbox");
+});
+
+test("legacy settings expand accounts by default while persisted false starts collapsed", () => {
+  const legacy = fixture();
+  const collapsed = fixture({ settings: { accountsExpanded: false } });
+  assert.deepEqual(legacy.effects[0], ["expanded", true]);
+  assert.deepEqual(collapsed.effects[0], ["expanded", false]);
+  assert.deepEqual(legacy.saved, []);
+  assert.deepEqual(collapsed.saved, []);
+});
+
+test("expansion changes persist only the boolean without navigation filtering or history", () => {
+  const f = fixture();
+  f.effects.length = 0;
+  f.saved.length = 0;
+  f.displayCalls.length = 0;
+  f.controller.setAccountsExpanded(false);
+  assert.deepEqual(f.effects, [["expanded", false]]);
+  assert.deepEqual(f.saved, [{ accountsExpanded: false }]);
+  assert.deepEqual(f.displayCalls, []);
+  f.controller.setAccountsExpanded(false);
+  assert.deepEqual(f.saved, [{ accountsExpanded: false }]);
+});
+
+test("settings broadcasts cannot overwrite the latest rapid per-pane expansion", () => {
+  const f = fixture();
+  f.controller.setAccountsExpanded(false);
+  f.controller.setAccountsExpanded(true);
+  f.controller.setAccountsExpanded(false);
+  f.effects.length = 0;
+  f.controller.updateSettings({ accountsExpanded: false, lastFolders: {} });
+  f.controller.updateSettings({ accountsExpanded: true, lastFolders: {} });
+  f.controller.updateSettings({ accountsExpanded: false, lastFolders: {} });
+  assert.deepEqual(f.effects, []);
+  f.controller.setAccountsExpanded(false);
+  assert.deepEqual(f.effects, []);
+  f.controller.setAccountsExpanded(true);
+  assert.deepEqual(f.effects, [["expanded", true]]);
+  assert.deepEqual(f.displayCalls, []);
+});
+
+test("failed expansion save does not rewind the current per-pane view", async () => {
+  const f = fixture({ saveResult: patch => patch.accountsExpanded === undefined ? undefined :
+    Promise.reject(Error("storage failed")) });
+  f.controller.setAccountsExpanded(false);
+  await new Promise(setImmediate);
+  f.effects.length = 0;
+  f.controller.updateSettings({ accountsExpanded: true, lastFolders: {} });
+  assert.deepEqual(f.effects, []);
+  f.controller.setAccountsExpanded(false);
+  assert.deepEqual(f.effects, []);
 });

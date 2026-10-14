@@ -14,9 +14,11 @@
 #accountpane-heading {
   flex: 0 0 auto;
   margin: 0;
-  padding: 6px 12px;
-  font: inherit;
-  font-weight: 600;
+  padding-block: var(--folder-mode-name-padding, 6px);
+  padding-inline: 12px;
+  font-family: var(--pb-font-family, inherit);
+  font-size: var(--pb-folder-section-size, 1.1rem);
+  font-weight: var(--pb-folder-section-weight, 600);
   color: var(--pb-sidebar-text-muted, var(--sidebar-color, inherit));
 }
 
@@ -27,7 +29,17 @@
   list-style: none;
 }
 
-#accountpane-list [role="option"] {
+#accountpane-list [role="group"] {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#accountpane-list [role="group"][hidden] {
+  display: none;
+}
+
+#accountpane-list .accountpane-row {
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -39,6 +51,43 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+#accountpane-list .accountpane-child > .accountpane-row {
+  padding-inline-start: 42px;
+}
+
+#accountpane-list .accountpane-disclosure {
+  box-sizing: border-box;
+  flex: 0 0 12px;
+  width: 12px;
+  height: 16px;
+  margin: 0;
+  padding: 2px;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  appearance: none;
+}
+
+#accountpane-list .accountpane-disclosure-icon {
+  display: block;
+  width: 8px;
+  height: 12px;
+  fill: currentColor;
+  transition: transform 80ms ease;
+}
+
+#accountpane-list .accountpane-root[aria-expanded="true"] > .accountpane-row .accountpane-disclosure-icon {
+  transform: rotate(90deg);
+}
+
+#accountpane-list .accountpane-icon {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+  color: var(--pb-sidebar-icon, currentColor);
 }
 
 #accountpane-list .accountpane-name {
@@ -79,16 +128,16 @@
   color: var(--folderpane-total-count-text, var(--pb-folder-badge-text, Canvas));
 }
 
-#accountpane-list [role="option"]:hover {
+#accountpane-list [role="treeitem"] > .accountpane-row:hover {
   background: var(--pb-sidebar-hover, var(--treeitem-background-hover, transparent));
 }
 
-#accountpane-list [aria-selected="true"] {
+#accountpane-list [role="treeitem"][aria-selected="true"] > .accountpane-row {
   background: var(--pb-selection-bg, var(--treeitem-background-active, Highlight));
   color: var(--pb-selection-text, var(--treeitem-text-active, HighlightText));
 }
 
-#accountpane-list [role="option"]:focus-visible {
+#accountpane-list [role="treeitem"]:focus-visible > .accountpane-row {
   outline: 2px solid var(--focus-outline-color, currentColor);
   outline-offset: -2px;
 }

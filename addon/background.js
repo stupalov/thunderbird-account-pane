@@ -5,6 +5,7 @@ var AccountPaneStorage = (() => {
   function normalize(value) {
     const source = object(value) ? value : {};
     return { version: 1, selectedAccountId: id(source.selectedAccountId) ? source.selectedAccountId : null,
+      accountsExpanded: typeof source.accountsExpanded === "boolean" ? source.accountsExpanded : true,
       lastFolders: Object.fromEntries(Object.entries(object(source.lastFolders) ? source.lastFolders : {})
         .filter(([key, uri]) => id(key) && id(uri))) };
   }
@@ -13,6 +14,9 @@ var AccountPaneStorage = (() => {
     if (object(value) && Object.hasOwn(value, "selectedAccountId") &&
         (value.selectedAccountId === null || id(value.selectedAccountId))) {
       patch.selectedAccountId = value.selectedAccountId;
+    }
+    if (object(value) && typeof value.accountsExpanded === "boolean") {
+      patch.accountsExpanded = value.accountsExpanded;
     }
     if (object(value?.lastFolder) && id(value.lastFolder.accountId) && id(value.lastFolder.uri)) {
       patch.lastFolder = { accountId: value.lastFolder.accountId, uri: value.lastFolder.uri };
@@ -27,6 +31,7 @@ var AccountPaneStorage = (() => {
       const operation = chain.then(async () => {
         const next = normalize(current);
         if (Object.hasOwn(patch, "selectedAccountId")) next.selectedAccountId = patch.selectedAccountId;
+        if (Object.hasOwn(patch, "accountsExpanded")) next.accountsExpanded = patch.accountsExpanded;
         if (patch.lastFolder) {
           // Computed property preserves ordinary account keys such as __proto__.
           next.lastFolders = { ...next.lastFolders, [patch.lastFolder.accountId]: patch.lastFolder.uri };

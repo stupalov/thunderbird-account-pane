@@ -13,7 +13,7 @@ function fixture({ failFilter = false, delayCSS = false, failController = false,
   const adapter = { accountForRow: row => row.account, dispose: () => events.push("adapter-dispose") };
   const filter = { dispose: () => events.push("filter-dispose") };
   const view = { dispose: () => events.push("view-dispose") };
-  let follow, select, save;
+  let follow, select, save, expand;
   const helpers = {
     AccountPaneModel: {},
     AccountPaneAdapter: { create(options) { assert.equal(options.window, pane);
@@ -21,7 +21,9 @@ function fixture({ failFilter = false, delayCSS = false, failController = false,
       assert.equal(options.Ci, Ci); assert.equal(options.Services, Services); events.push("adapter"); return adapter; } },
     AccountPaneView: { create(options) { events.push("view"); assert.equal(options.labels.accounts, "Accounts");
       assert.equal(options.labels.allAccounts, "All Accounts"); assert.equal(options.cssText, "fixture CSS");
-      select = options.onSelect; return view; } },
+      assert.equal(options.labels.expandAccounts, "Expand accounts");
+      assert.equal(options.labels.collapseAccounts, "Collapse accounts");
+      select = options.onSelect; expand = options.onExpandedChanged; return view; } },
     AccountPaneTreeFilter: { attach(options) { events.push("filter");
       assert.equal(options.accountForRow({ account: "a" }), "a"); follow = options.followTarget;
       if (failFilter) throw Error("private"); return filter; } },
@@ -29,6 +31,7 @@ function fixture({ failFilter = false, delayCSS = false, failController = false,
       if (failController) throw Error("private fixture://uri");
       const controller = { dispose: () => events.push("controller-dispose"),
         selectAccount: id => events.push(["select", id]), followFolder: id => events.push(["follow", id]),
+        setAccountsExpanded: value => events.push(["expanded", value]),
         updateSettings: value => events.push(["settings", value]) }; controllers.push(controller); return controller; } },
     AccountPaneLifecycle: { create(options) { attach = options.attachPane;
       return { start() { events.push("start"); }, dispose() { events.push("lifecycle-dispose"); disposer?.(); } }; } }
@@ -56,7 +59,8 @@ function fixture({ failFilter = false, delayCSS = false, failController = false,
       if (!delayCSS) callback({ available: () => 11, close() {} }, 0); }, readInputStreamToString: () => "fixture CSS" };
   const modules = { Services, MailServices, FolderUtils, ExtensionSupport, NetUtil };
   const extension = { id: "accountpane@stupalov.github.io", rootURI: { resolve: p => (packagedRootURI ?? "moz-extension://fixture/") + p },
-    localeData: { localizeMessage: key => ({ accounts: "Accounts", allAccounts: "All Accounts" })[key] } };
+    localeData: { localizeMessage: key => ({ accounts: "Accounts", allAccounts: "All Accounts",
+      expandAccounts: "Expand accounts", collapseAccounts: "Collapse accounts" })[key] } };
   const scope = vm.createContext({ ExtensionCommon: { ExtensionAPI, EventManager }, Services, Ci,
     Components: { isSuccessCode: status => status === 0 }, ChromeUtils: { importESModule(url) {
       const name = url.split("/").at(-1).split(".")[0]; assert.ok(modules[name], url); return { [name]: modules[name] };
@@ -66,6 +70,7 @@ function fixture({ failFilter = false, delayCSS = false, failController = false,
   const implementation = new scope.accountPane(extension), api = implementation.getAPI({}).accountPane;
   return { implementation, api, events, logs, loaded, settings, controllers,
     attach() { disposer = attach(pane); return disposer; }, select: id => select(id), follow: id => follow(id),
+    expand: value => expand(value),
     save: patch => save(patch), completeCSS: () => cssCallback({ available: () => 11, close() {} }, 0),
     listen: fire => register(fire), scope };
 }
@@ -75,7 +80,9 @@ test("Experiment isolates helpers and wires controller adapter filter view and s
   await f.api.start(f.settings); await f.api.start(f.settings); f.attach();
   assert.equal(f.events.filter(v => v === "start").length, 1); assert.equal(f.loaded.length, 6);
   assert.ok(f.loaded.every(v => v.scope === f.loaded[0].scope)); assert.equal(f.scope.AccountPaneModel, undefined);
-  f.select("a"); f.follow(null); assert.ok(f.events.some(v => Array.isArray(v) && v[0] === "follow" && v[1] === null));
+  f.select("a"); f.follow(null); f.expand(false);
+  assert.ok(f.events.some(v => Array.isArray(v) && v[0] === "follow" && v[1] === null));
+  assert.ok(f.events.some(v => Array.isArray(v) && v[0] === "expanded" && v[1] === false));
   assert.equal(await f.save({ selectedAccountId: "a" }), "ack"); assert.equal(patches.length, 1);
   await f.api.settingsChanged({ ...f.settings, lastFolders: { a: "fixture://a/one" } });
   assert.equal(f.events.at(-1)[0], "settings");
