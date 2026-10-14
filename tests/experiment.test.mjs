@@ -12,10 +12,11 @@ function fixture({ failFilter = false, delayCSS = false, failController = false,
   const pane = { document: { getElementById: () => ({}) } };
   const adapter = { accountForRow: row => row.account,
     showAccountContextMenu: (...args) => events.push(["context", ...args]),
+    reorderAccount: (...args) => events.push(["reorder", ...args]),
     dispose: () => events.push("adapter-dispose") };
   const filter = { dispose: () => events.push("filter-dispose") };
   const view = { dispose: () => events.push("view-dispose") };
-  let follow, select, save, expand, contextMenu;
+  let follow, select, save, expand, contextMenu, reorder;
   const helpers = {
     AccountPaneModel: {},
     AccountPaneAdapter: { create(options) { assert.equal(options.window, pane);
@@ -25,7 +26,7 @@ function fixture({ failFilter = false, delayCSS = false, failController = false,
       assert.equal(options.labels.allAccounts, "All Accounts"); assert.equal(options.cssText, "fixture CSS");
       assert.equal(options.labels.expandAccounts, "Expand accounts");
       assert.equal(options.labels.collapseAccounts, "Collapse accounts");
-      select = options.onSelect; expand = options.onExpandedChanged; contextMenu = options.onContextMenu; return view; } },
+      select = options.onSelect; expand = options.onExpandedChanged; contextMenu = options.onContextMenu; reorder = options.onReorder; return view; } },
     AccountPaneTreeFilter: { attach(options) { events.push("filter");
       assert.equal(options.accountForRow({ account: "a" }), "a"); follow = options.followTarget;
       if (failFilter) throw Error("private"); return filter; } },
@@ -73,6 +74,7 @@ function fixture({ failFilter = false, delayCSS = false, failController = false,
   return { implementation, api, events, logs, loaded, settings, controllers,
     attach() { disposer = attach(pane); return disposer; }, select: id => select(id), follow: id => follow(id),
     expand: value => expand(value), contextMenu: (...args) => contextMenu(...args),
+    reorder: (...args) => reorder(...args),
     save: patch => save(patch), completeCSS: () => cssCallback({ available: () => 11, close() {} }, 0),
     listen: fire => register(fire), scope };
 }
@@ -148,5 +150,14 @@ test("all callers sharing failed startup receive the same generic rejection", as
   const f = fixture({ failCSS: true }); f.listen({ async: () => Promise.resolve() });
   const results = await Promise.allSettled([f.api.start(f.settings), f.api.start(f.settings)]);
   assert.deepEqual(results.map(value => value.reason.message), ["ACCOUNTPANE_START_FAILED", "ACCOUNTPANE_START_FAILED"]);
+  f.implementation.onShutdown(true);
+});
+
+test("Experiment delegates drag reordering solely to the native account adapter", async () => {
+  const f = fixture(); f.listen({ async: () => Promise.resolve() });
+  await f.api.start(f.settings); f.attach();
+  const before = f.events.length;
+  f.reorder("b", "a", true);
+  assert.deepEqual(f.events.slice(before), [["reorder", "b", "a", true]]);
   f.implementation.onShutdown(true);
 });

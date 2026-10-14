@@ -25,6 +25,27 @@ var AccountPaneAdapter = (() => {
       return result;
     }
 
+    function reorderAccount(movedId, targetId, before) {
+      if (disposed || typeof before !== "boolean" || movedId === targetId) return false;
+      try {
+        const visible = listAccounts().map(account => account.id);
+        if (!visible.includes(movedId) || !visible.includes(targetId)) return false;
+        const ordered = visible.filter(id => id !== movedId);
+        ordered.splice(ordered.indexOf(targetId) + (before ? 0 : 1), 0, movedId);
+        if (ordered.every((id, index) => id === visible[index])) return false;
+        const visibleSet = new Set(visible);
+        let index = 0;
+        // Native account order is global. Preserve accounts omitted from this
+        // pane in their existing slots, including deferred and hidden servers.
+        const keys = Array.from(MailServices.accounts.accounts, account =>
+          visibleSet.has(account.key) ? ordered[index++] : account.key);
+        MailServices.accounts.reorderAccounts(keys);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
     function accountForServer(key) {
       return listAccounts().find(account => account.serverKey === key)?.id ?? null;
     }
@@ -377,7 +398,7 @@ var AccountPaneAdapter = (() => {
         }
       }
     }
-    return { listAccounts, listFolders, currentFolder, selectedFolders, activeModes, canDisplayFolder,
+    return { listAccounts, reorderAccount, listFolders, currentFolder, selectedFolders, activeModes, canDisplayFolder,
       displayFolder, ensureAllFolders, showAccountContextMenu, accountForRow, messageCounts, onMessageCountsChanged,
       onFolderChanged, onAccountsChanged, onModesChanged, dispose };
   }

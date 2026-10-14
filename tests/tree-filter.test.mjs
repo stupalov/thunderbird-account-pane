@@ -515,3 +515,167 @@ test("flattened root removes owned expanded state when originally absent", () =>
   filter.dispose();
   assert.equal(root.getAttribute("aria-expanded"), null);
 });
+
+// Mirror native folder-tree-row naming contracts, including its idempotent
+// text setters and full-name/count accessibility updates.
+function namedFolder(row, style = "both") {
+  const state = { writes: 0, name: "", fullName: "" };
+  Object.assign(row, {
+    _nameStyle: style, _folderName: "Release - notes", _fullFolderName: "Projects/Release - notes",
+    _serverName: "Work - account", unreadCount: 3, totalCount: 12,
+    updateFolderNames(name, fullName) {
+      this._folderName = name; this._fullFolderName = fullName; this._setName();
+    },
+    setServerName(name) { this._serverName = name; this._setName(); }
+  });
+  Object.defineProperties(row, {
+    name: { get() { return state.name; }, set(value) {
+      if (value !== state.name) { state.name = value; state.writes++; }
+    } },
+    fullName: { get() { return state.fullName; }, set(value) {
+      if (value !== state.fullName) { state.fullName = value; }
+      this.setAttribute("aria-label", `${value}, ${this.unreadCount} unread, ${this.totalCount} total`);
+      this.setAttribute("title", value);
+    } }
+  });
+  Object.setPrototypeOf(row, {
+    _setName() {
+      this.name = this._nameStyle === "server" ? this._serverName : this._nameStyle === "folder" ?
+        this._folderName : `${this._folderName} - ${this._serverName}`;
+      this.fullName = this._nameStyle === "server" ? this._serverName : this._nameStyle === "folder" ?
+        this._fullFolderName : `${this._fullFolderName} - ${this._serverName}`;
+    }
+  });
+  row._setName();
+  return state;
+}
+
+test("selected account shortens compact labels without parsing hyphens or changing native counts", () => {
+  const f = makeTreeFixture(["a", "a", "b"]);
+  const [favorite, recent, foreign] = f.tree.allRows;
+  recent.modeName = "recent";
+  for (const row of f.tree.allRows) { namedFolder(row); }
+  const filter = filters.attach(f.options);
+  filter.apply("a");
+  for (const row of [favorite, recent]) {
+    assert.equal(row.name, "Release - notes");
+    assert.equal(row.fullName, "Projects/Release - notes");
+    assert.equal(row.getAttribute("aria-label"), "Projects/Release - notes, 3 unread, 12 total");
+    assert.equal(row.getAttribute("title"), "Projects/Release - notes");
+    assert.equal(row._nameStyle, "both");
+  }
+  assert.equal(foreign.name, "Release - notes - Work - account");
+  filter.apply(null);
+  assert.equal(favorite.name, "Release - notes - Work - account");
+  assert.equal(favorite.fullName, "Projects/Release - notes - Work - account");
+  assert.equal(Object.hasOwn(favorite, "_setName"), false);
+  filter.dispose();
+});
+
+test("live renames and newly built mode rows use current metadata and converge after observer refresh", () => {
+  const f = makeTreeFixture(["a"]);
+  const row = f.tree.allRows[0];
+  const state = namedFolder(row);
+  const filter = filters.attach(f.options);
+  filter.apply("a");
+  row.updateFolderNames("Renamed - folder", "Parent/Renamed - folder");
+  row.setServerName("Renamed - server");
+  assert.equal(row.name, "Renamed - folder");
+  assert.equal(row.fullName, "Parent/Renamed - folder");
+  const added = makeTreeRow("a");
+  added.modeName = "unread";
+  namedFolder(added);
+  f.tree.allRows.push(added);
+  f.mutate();
+  assert.equal(added.name, "Release - notes");
+  const writes = state.writes;
+  for (let i = 0; i < 10; i++) { f.mutate(); }
+  assert.equal(state.writes, writes, "observer refresh must not create further label mutations");
+  filter.dispose();
+  assert.equal(row.name, "Renamed - folder - Renamed - server");
+  assert.equal(row.fullName, "Parent/Renamed - folder - Renamed - server");
+  assert.equal(added.name, "Release - notes - Work - account");
+});
+
+test("switching accounts and detached mode rows restore native label ownership", () => {
+  const f = makeTreeFixture();
+  for (const row of f.tree.allRows) { namedFolder(row); }
+  const [a, b] = f.tree.allRows;
+  const own = a._setName;
+  Object.defineProperty(a, "_setName", { value: own, writable: true, configurable: false, enumerable: true });
+  const before = Object.getOwnPropertyDescriptor(a, "_setName");
+  const filter = filters.attach(f.options);
+  filter.apply("a");
+  assert.equal(a.name, "Release - notes");
+  filter.apply("b");
+  assert.equal(a.name, "Release - notes - Work - account");
+  assert.deepEqual(Object.getOwnPropertyDescriptor(a, "_setName"), before);
+  assert.equal(b.name, "Release - notes");
+  f.tree.allRows.pop();
+  f.mutate();
+  assert.equal(b.name, "Release - notes - Work - account");
+  filter.dispose();
+});
+
+test("later name-method owners survive cleanup and captured wrappers become native", () => {
+  const f = makeTreeFixture(["a"]);
+  const row = f.tree.allRows[0];
+  namedFolder(row);
+  const filter = filters.attach(f.options);
+  filter.apply("a");
+  const captured = row._setName;
+  const later = function() { captured.call(this); };
+  row._setName = later;
+  filter.dispose();
+  assert.equal(row._setName, later);
+  row.setServerName("New server");
+  assert.equal(row.name, "Release - notes - New server");
+});
+
+test("noncompact and nonwrappable rows retain native naming without breaking filtering", () => {
+  const f = makeTreeFixture(["a", "a", "a"]);
+  const [folder, server, frozen] = f.tree.allRows;
+  namedFolder(folder, "folder"); namedFolder(server, "server"); namedFolder(frozen);
+  Object.preventExtensions(frozen);
+  const filter = filters.attach(f.options);
+  filter.apply("a");
+  assert.equal(folder.name, "Release - notes");
+  assert.equal(server.name, "Work - account");
+  assert.equal(frozen.name, "Release - notes - Work - account");
+  assert.equal(Object.hasOwn(folder, "_setName"), false);
+  filter.dispose();
+});
+
+test("resolver fail-open restores compact labels from current native metadata", () => {
+  const f = makeTreeFixture(["a"]);
+  const row = f.tree.allRows[0];
+  namedFolder(row);
+  let fail = false;
+  f.options.accountForRow = row => { if (fail) { throw new Error("lookup failure"); } return row.accountId; };
+  const filter = filters.attach(f.options);
+  filter.apply("a");
+  row.setServerName("Updated server");
+  fail = true;
+  assert.equal(f.tree.rows.length, 1);
+  assert.equal(row.name, "Release - notes - Updated server");
+  assert.equal(Object.hasOwn(row, "_setName"), false);
+  filter.dispose();
+});
+
+test("native naming exceptions always restore temporary name style", () => {
+  const f = makeTreeFixture(["a"]);
+  const row = f.tree.allRows[0];
+  namedFolder(row);
+  const native = row._setName;
+  row._setName = function() {
+    if (this._nameStyle === "folder") { throw new Error("native formatting failure"); }
+    return native.call(this);
+  };
+  const before = row._setName;
+  const filter = filters.attach(f.options);
+  assert.throws(() => filter.apply("a"), /native formatting failure/);
+  assert.equal(row._nameStyle, "both");
+  filter.dispose();
+  assert.equal(row._setName, before);
+  assert.equal(row.name, "Release - notes - Work - account");
+});

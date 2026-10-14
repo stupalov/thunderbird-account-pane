@@ -47,6 +47,56 @@ var AccountPaneTreeFilter = (() => {
     const marked = new Map();
     const flattened = new Map();
     const indented = new Map();
+    const named = new Map();
+
+    function restoreName(row) {
+      const hook = named.get(row);
+      named.delete(row);
+      // A later extension owns its replacement method and any naming policy.
+      if (Object.getOwnPropertyDescriptor(row, "_setName")?.value !== hook.wrapper) {
+        return;
+      }
+      if (hook.own) { Object.defineProperty(row, "_setName", hook.own); }
+      else { delete row._setName; }
+      // Reformat current metadata, rather than restoring stale label snapshots.
+      hook.native.call(row);
+    }
+
+    function shortenName(row) {
+      if (!named.has(row)) {
+        const own = Object.getOwnPropertyDescriptor(row, "_setName");
+        const native = row._setName;
+        const style = descriptorFor(row, "_nameStyle");
+        if (typeof native !== "function" || !style?.writable ||
+            (own && !own.configurable && !own.writable) ||
+            (!own && !Object.isExtensible(row))) {
+          return;
+        }
+        const hook = { own, native };
+        hook.wrapper = function(...args) {
+          if (named.get(row) !== hook || this !== row || this._nameStyle !== "both") {
+            return native.apply(this, args);
+          }
+          const style = this._nameStyle;
+          this._nameStyle = "folder";
+          try { return native.apply(this, args); }
+          finally { this._nameStyle = style; }
+        };
+        Object.defineProperty(row, "_setName", {
+          configurable: own?.configurable ?? true,
+          enumerable: own?.enumerable ?? false,
+          writable: own && "writable" in own ? own.writable : true,
+          value: hook.wrapper
+        });
+        named.set(row, hook);
+      }
+      const hook = named.get(row);
+      if (row._setName === hook.wrapper) {
+        // Native setters avoid unchanged text mutations, so our child-list
+        // observer settles after the first formatting pass.
+        hook.wrapper.call(row);
+      }
+    }
     const flattenMarker = "data-accountpane-flattened";
     const indentProperty = "--accountpane-indent";
 
@@ -120,6 +170,7 @@ var AccountPaneTreeFilter = (() => {
       for (const row of marked.keys()) { restoreMarker(row); }
       for (const row of flattened.keys()) { restoreFlattened(row); }
       for (const row of indented.keys()) { restoreIndent(row); }
+      for (const row of named.keys()) { restoreName(row); }
     }
 
     function refresh() {
@@ -148,6 +199,18 @@ var AccountPaneTreeFilter = (() => {
               }
             }
           }
+        }
+      }
+      for (const row of named.keys()) {
+        if (!rows.has(row) || selectedAccountId === null ||
+            accounts.get(row) !== selectedAccountId || row._nameStyle !== "both") {
+          restoreName(row);
+        }
+      }
+      for (const row of rows) {
+        if (selectedAccountId !== null && accounts.get(row) === selectedAccountId &&
+            row._nameStyle === "both") {
+          shortenName(row);
         }
       }
       for (const row of flattened.keys()) {

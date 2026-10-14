@@ -76,13 +76,13 @@ def build(root):
                               "description", "permissions", "background",
                               "browser_specific_settings", "experiment_apis"})
     require(manifest["background"] == {"scripts": ["background.js"]})
-    require(manifest["manifest_version"] == 2 and manifest["version"] == "0.1.5")
+    require(manifest["manifest_version"] == 2 and manifest["version"] == "0.1.6")
     icons = {str(size): f"icons/accountpane-{size}.png" for size in (16, 32, 48, 64, 128)}
     require(manifest["icons"] == icons and all(path in inputs for path in icons.values()))
     require(manifest["default_locale"] == "en" and manifest["permissions"] == ["storage"])
     require(manifest["browser_specific_settings"]["gecko"] == {
         "id": "accountpane@stupalov.github.io",
-        "strict_min_version": "157.0", "strict_max_version": "157.*"})
+        "strict_min_version": "157.0", "strict_max_version": "158.*"})
     require(set(manifest["experiment_apis"]) == {"accountPane"})
     experiment = manifest["experiment_apis"]["accountPane"]
     require(experiment == {"schema": "experiment/schema.json", "parent": {
@@ -111,7 +111,7 @@ def build(root):
             require(isinstance(messages[key]["message"], str) and bool(messages[key]["message"]))
     output_dir = root / "dist"
     require(not output_dir.is_symlink())
-    output = output_dir / "accountpane-0.1.5.xpi"
+    output = output_dir / "accountpane-0.1.6.xpi"
     require(not output.is_symlink())
     output_dir.mkdir(exist_ok=True)
     temporary = None

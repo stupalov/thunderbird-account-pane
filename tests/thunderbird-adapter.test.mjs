@@ -479,3 +479,41 @@ test("context disposal does not close or clear another owner's native override",
   assert.ok(!f.calls.some(call => call[0] === "hide" || call[0] === "clear"));
   assert.equal(f.listeners.size, 0);
 });
+
+test("account reorder persists native complete order while preserving hidden account slots", () => {
+  const f = fixture(), calls = [];
+  // Interleave hidden entries with visible accounts.
+  const [b, a, local, im, deferred, hidden] = f.accounts;
+  f.accounts.splice(0, f.accounts.length, b, im, a, deferred, local, hidden);
+  f.MailServices.accounts.reorderAccounts = keys => calls.push(Array.from(keys));
+  assert.equal(f.adapter.reorderAccount("local", "b", true), true);
+  assert.deepEqual(calls, [["local", "im", "b", "deferred", "a", "hidden"]]);
+  assert.deepEqual(f.displays, []);
+  assert.equal(f.window.gFolder, f.inbox);
+});
+test("account reorder rejects invalid targets no-ops unavailable API and native failure", () => {
+  const f = fixture(), calls = [];
+  f.MailServices.accounts.reorderAccounts = keys => calls.push(Array.from(keys));
+  for (const args of [[null, "a", true], ["a", "hidden", true], ["hidden", "a", true],
+    ["a", "a", true], ["b", "a", true], ["a", "b", false], ["a", "b", "before"]]) {
+    assert.equal(f.adapter.reorderAccount(...args), false);
+  }
+  assert.deepEqual(calls, []);
+  delete f.MailServices.accounts.reorderAccounts;
+  assert.equal(f.adapter.reorderAccount("local", "a", true), false);
+  f.MailServices.accounts.reorderAccounts = () => { throw Error("fixture failure"); };
+  assert.equal(f.adapter.reorderAccount("local", "a", true), false);
+  f.adapter.dispose();
+  assert.equal(f.adapter.reorderAccount("local", "a", true), false);
+});
+
+test("account reorder uses current visible order and keeps newly hidden Local Folders in place", () => {
+  const f = fixture(), calls = [];
+  f.MailServices.accounts.reorderAccounts = keys => calls.push(Array.from(keys));
+  f.window.folderPane.hideLocalFolders = true;
+  assert.equal(f.adapter.reorderAccount("a", "b", true), true);
+  assert.deepEqual(calls, [["a", "b", "local", "im", "deferred", "hidden"]]);
+  f.accounts[1].incomingServer.hidden = true;
+  assert.equal(f.adapter.reorderAccount("a", "b", true), false);
+  assert.equal(calls.length, 1);
+});

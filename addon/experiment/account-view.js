@@ -27,7 +27,7 @@ var AccountPaneView = (() => {
   }
 
   function create({ document, folderPane, labels, onSelect, onExpandedChanged = () => {},
-    onContextMenu = () => {}, cssText }) {
+    onContextMenu = () => {}, onReorder = () => {}, cssText }) {
     const tree = document.getElementById("folderTree");
     if (!tree || tree.parentNode !== folderPane) {
       throw new TypeError("AccountPane requires a supported folder pane");
@@ -52,6 +52,9 @@ var AccountPaneView = (() => {
     let disposed = false;
     let expanded = true;
     let lastCounts = { showTotal: false, accounts: {} };
+    const dragType = "application/x-accountpane-account";
+    let dragState = null;
+    let suppressClick = false;
 
     function syncHeadingStyle() {
       const nativeHeading = document.querySelector?.("#folderTree .mode-name");
@@ -87,6 +90,7 @@ var AccountPaneView = (() => {
       option.className = root ? "accountpane-root" : "accountpane-child";
       const ownRow = document.createElement("div");
       ownRow.className = "accountpane-row";
+      if (!root) ownRow.setAttribute("draggable", "true");
       let disclosure = null;
       if (root) {
         disclosure = document.createElement("button");
@@ -138,6 +142,7 @@ var AccountPaneView = (() => {
 
     function setExpanded(value) {
       if (disposed) return;
+      clearDrag();
       expanded = value !== false;
       const root = rootEntry();
       if (!root) return;
@@ -169,6 +174,11 @@ var AccountPaneView = (() => {
 
     function onClick(event) {
       if (event.button && event.button !== 0) return;
+      if (suppressClick) {
+        suppressClick = false;
+        consume(event);
+        return;
+      }
       const root = rootEntry();
       if (root?.disclosure.contains(event.target)) {
         event.preventDefault();
@@ -187,6 +197,82 @@ var AccountPaneView = (() => {
     function consume(event) {
       event.preventDefault();
       event.stopPropagation();
+    }
+
+    function clearDropIndicator() {
+      for (const entry of entries) entry.row.removeAttribute("data-accountpane-drop");
+    }
+
+    function clearDrag() {
+      clearDropIndicator();
+      dragState = null;
+    }
+
+    function onMouseDown() {
+      // A fresh mouse gesture restores ordinary selection after a drag. Keep
+      // any browser-generated click at the end of the drag from navigating.
+      if (!dragState) suppressClick = false;
+    }
+
+    function onDragStart(event) {
+      clearDrag();
+      const source = entryFor(event.target);
+      if (disposed || !expanded || !source || source.id === null || !event.dataTransfer) {
+        event.preventDefault();
+        return;
+      }
+      const token = `${Date.now()}-${Math.random()}`;
+      try {
+        event.dataTransfer.setData(dragType, token);
+        event.dataTransfer.effectAllowed = "move";
+        dragState = { source, token };
+        suppressClick = true;
+        event.stopPropagation();
+      } catch {
+        event.preventDefault();
+      }
+    }
+
+    function dropTarget(event) {
+      if (disposed || !expanded || !dragState || !entries.includes(dragState.source)) return null;
+      try {
+        const transfer = event.dataTransfer;
+        if (!transfer || !Array.from(transfer.types).includes(dragType)) return null;
+        if (transfer.mozSourceNode && !dragState.source.row.contains(transfer.mozSourceNode)) return null;
+        // The browser protects payloads during dragover; read the private token
+        // only on drop, when access is allowed. The live source stays pane-local.
+        if (event.type === "drop" && transfer.getData(dragType) !== dragState.token) return null;
+      } catch {
+        return null;
+      }
+      const target = entryFor(event.target);
+      if (!target || target.id === null || target === dragState.source) return null;
+      const rect = target.row.getBoundingClientRect();
+      if (!Number.isFinite(event.clientY) || !(rect.height > 0)) return null;
+      return { target, before: event.clientY < rect.top + rect.height / 2 };
+    }
+
+    function onDragOver(event) {
+      clearDropIndicator();
+      const destination = dropTarget(event);
+      if (!destination) return;
+      consume(event);
+      event.dataTransfer.dropEffect = "move";
+      destination.target.row.setAttribute("data-accountpane-drop", destination.before ? "before" : "after");
+    }
+
+    function onDragLeave(event) {
+      const target = entryFor(event.target);
+      if (!target || !target.row.contains(event.relatedTarget)) clearDropIndicator();
+    }
+
+    function onDrop(event) {
+      const destination = dropTarget(event);
+      const source = dragState?.source;
+      clearDrag();
+      if (!destination) return;
+      consume(event);
+      onReorder(source.id, destination.target.id, destination.before);
     }
 
     function onKeyDown(event) {
@@ -239,6 +325,9 @@ var AccountPaneView = (() => {
       next.option.focus();
     }
 
+    const dragListeners = { mousedown: onMouseDown, dragstart: onDragStart,
+      dragover: onDragOver, dragleave: onDragLeave, drop: onDrop, dragend: clearDrag };
+    for (const [type, listener] of Object.entries(dragListeners)) list.addEventListener(type, listener);
     list.addEventListener("contextmenu", onContextMenuEvent);
     list.addEventListener("click", onClick);
     list.addEventListener("keydown", onKeyDown);
@@ -246,6 +335,7 @@ var AccountPaneView = (() => {
 
     function render(accounts, selectedAccountId) {
       if (disposed) return;
+      clearDrag();
       const previouslyFocused = entryFor(document.activeElement);
       const selected = accounts.some(account => account.id === selectedAccountId) ? selectedAccountId : null;
       const root = createEntry({ id: null, name: labels.allAccounts, type: "all" }, true);
@@ -311,6 +401,8 @@ var AccountPaneView = (() => {
     function dispose() {
       if (disposed) return;
       disposed = true;
+      clearDrag();
+      for (const [type, listener] of Object.entries(dragListeners)) list.removeEventListener(type, listener);
       list.removeEventListener("contextmenu", onContextMenuEvent);
       list.removeEventListener("click", onClick);
       list.removeEventListener("keydown", onKeyDown);

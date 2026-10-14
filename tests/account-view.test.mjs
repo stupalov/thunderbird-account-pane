@@ -103,7 +103,7 @@ const defaultLabels = {
 };
 
 function fixture(labels = defaultLabels, cssText = "/* fixture CSS */", onSelect = () => {},
-    onExpandedChanged = () => {}, onContextMenu = () => {}) {
+    onExpandedChanged = () => {}, onContextMenu = () => {}, onReorder = () => {}) {
   assert.ok(existsSync("addon/experiment/account-view.js"), "AccountPaneView implementation exists");
   const viewModule = loadScript("addon/experiment/account-view.js", "AccountPaneView");
   let nativeHeading;
@@ -138,6 +138,7 @@ function fixture(labels = defaultLabels, cssText = "/* fixture CSS */", onSelect
   const selected = [], expandedChanges = [], contextMenus = [];
   const view = viewModule.create({ document, folderPane, labels: { ...defaultLabels, ...labels }, cssText,
     onSelect: id => { selected.push(id); onSelect(id); },
+    onReorder,
     onExpandedChanged: value => { expandedChanges.push(value); onExpandedChanged(value); },
     onContextMenu: (id, event, anchor) => {
       contextMenus.push({ id, event, anchor });
@@ -426,4 +427,97 @@ test("synchronous selection rerender retains activated account focus", () => {
   part(treeItems(f)[2], "accountpane-name").dispatch("click");
   assert.equal(rowText(f.document.activeElement), "Local Folders");
   assert.deepEqual(f.selected, ["a", "local"]);
+});
+
+function transfer() {
+  const values = new Map();
+  return { effectAllowed: "", dropEffect: "", setData(type, value) { values.set(type, value); },
+    get types() { return [...values.keys()]; },
+    getData(type) { return values.get(type) || ""; } };
+}
+function drag(f, source, target, before = true, dataTransfer = transfer()) {
+  row(source).dispatch("dragstart", { dataTransfer });
+  row(target).getBoundingClientRect = () => ({ top: 10, height: 20 });
+  const over = row(target).dispatch("dragover", { dataTransfer, clientY: before ? 11 : 29 });
+  const drop = row(target).dispatch("drop", { dataTransfer, clientY: before ? 11 : 29 });
+  return { over, drop, dataTransfer };
+}
+test("account drag invokes reorder before or after another account without navigation", () => {
+  const calls = [], f = fixture(undefined, undefined, undefined, undefined, undefined,
+    (...args) => calls.push(args));
+  f.view.render(accounts, "a");
+  const items = treeItems(f);
+  assert.equal(row(items[1]).getAttribute("draggable"), "true");
+  assert.notEqual(row(items[0]).getAttribute("draggable"), "true");
+  const result = drag(f, items[2], items[1]);
+  assert.equal(result.over.defaultPrevented, true);
+  assert.equal(result.dataTransfer.effectAllowed, "move");
+  assert.deepEqual(calls, [["local", "a", true]]);
+  row(items[2]).dispatch("click");
+  assert.deepEqual(f.selected, []);
+  drag(f, items[1], items[2], false);
+  assert.deepEqual(calls.at(-1), ["a", "local", false]);
+  assert.equal(items[1].getAttribute("aria-selected"), "true");
+});
+test("foreign drops, root and self drops, cancellation and stale rerender cannot reorder", () => {
+  const calls = [], f = fixture(undefined, undefined, undefined, undefined, undefined,
+    (...args) => calls.push(args));
+  f.view.render(accounts, null);
+  let items = treeItems(f);
+  row(items[1]).getBoundingClientRect = () => ({ top: 0, height: 20 });
+  row(items[1]).dispatch("drop", { dataTransfer: transfer(), clientY: 0 });
+  drag(f, items[0], items[1]); drag(f, items[1], items[0]); drag(f, items[1], items[1]);
+  const dt = transfer();
+  row(items[1]).dispatch("dragstart", { dataTransfer: dt });
+  row(items[2]).dispatch("dragend", { dataTransfer: dt });
+  row(items[2]).dispatch("drop", { dataTransfer: dt });
+  row(items[1]).dispatch("dragstart", { dataTransfer: dt });
+  f.view.render(accounts, null); items = treeItems(f);
+  row(items[2]).dispatch("drop", { dataTransfer: dt });
+  row(items[1]).dispatch("dragstart", { dataTransfer: dt });
+  row(items[2]).getBoundingClientRect = () => ({ top: 0, height: 20 });
+  row(items[2]).dispatch("dragover", { dataTransfer: dt, clientY: 1 });
+  assert.equal(row(items[2]).getAttribute("data-accountpane-drop"), "before");
+  row(items[2]).dispatch("dragleave", { relatedTarget: null });
+  assert.equal(row(items[2]).getAttribute("data-accountpane-drop"), null);
+  f.view.dispose();
+  assert.deepEqual(calls, []);
+});
+
+test("protected dragover data permits owned insertion while foreign drag sources are ignored", () => {
+  const calls = [], f = fixture(undefined, undefined, undefined, undefined, undefined,
+    (...args) => calls.push(args));
+  f.view.render(accounts, "a");
+  const items = treeItems(f), dt = transfer();
+  row(items[2]).getBoundingClientRect = () => ({ top: 0, height: 20 });
+  row(items[1]).dispatch("dragstart", { dataTransfer: dt });
+  const read = dt.getData;
+  dt.getData = () => ""; // HTML drag data is protected before drop.
+  dt.mozSourceNode = row(items[1]);
+  const over = row(items[2]).dispatch("dragover", { dataTransfer: dt, clientY: 19 });
+  assert.equal(over.defaultPrevented, true);
+  assert.equal(row(items[2]).getAttribute("data-accountpane-drop"), "after");
+  dt.mozSourceNode = f.tree;
+  const foreign = row(items[2]).dispatch("dragover", { dataTransfer: dt, clientY: 19 });
+  assert.equal(foreign.defaultPrevented, false);
+  assert.equal(row(items[2]).getAttribute("data-accountpane-drop"), null);
+  dt.mozSourceNode = row(items[1]); dt.getData = read;
+  row(items[2]).dispatch("drop", { dataTransfer: dt, clientY: 19 });
+  assert.deepEqual(calls, [["a", "local", false]]);
+});
+
+test("mismatched drop token and collapse cancel the drag and a fresh mouse gesture selects normally", () => {
+  const calls = [], f = fixture(undefined, undefined, undefined, undefined, undefined,
+    (...args) => calls.push(args));
+  f.view.render(accounts, "a");
+  const items = treeItems(f), dt = transfer();
+  row(items[2]).getBoundingClientRect = () => ({ top: 0, height: 20 });
+  row(items[1]).dispatch("dragstart", { dataTransfer: dt });
+  row(items[2]).dispatch("drop", { dataTransfer: { types: dt.types, getData: () => "foreign" }, clientY: 19 });
+  row(items[1]).dispatch("dragstart", { dataTransfer: dt });
+  f.view.setExpanded(false); f.view.setExpanded(true);
+  row(items[2]).dispatch("drop", { dataTransfer: dt, clientY: 19 });
+  assert.deepEqual(calls, []);
+  row(items[2]).dispatch("mousedown"); row(items[2]).dispatch("click");
+  assert.deepEqual(f.selected, ["local"]);
 });
