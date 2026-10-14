@@ -45,6 +45,17 @@ test("available previous folder wins over inbox", () => {
     "fixture://a/archive");
 });
 
+test("explicit account target ignores history and flags and uses the first ordered real folder", () => {
+  const folders = [
+    { uri: "fixture://a/root", accountId: "a", root: true, available: true },
+    { uri: "fixture://a/first", accountId: "a", root: false, available: true },
+    { uri: "fixture://a/inbox", accountId: "a", inbox: true, root: false, available: true }
+  ];
+  assert.equal(model.firstTarget("a", folders, { a: "fixture://a/inbox" }).uri,
+    "fixture://a/first");
+  assert.equal(model.firstTarget("a", folders.slice(0, 1), {}).uri, "fixture://a/root");
+});
+
 test("foreign remembered URI cannot select another account's folder", () => {
   const { folders } = makeModelFixture();
   assert.equal(model.resolveTarget("a", folders, { a: "fixture://b/inbox" }).uri,
@@ -167,9 +178,13 @@ test("supported modes allow account filtering", () => {
   }
 });
 
-test("unified, tags, recent and unknown modes restore unrestricted navigation", () => {
-  for (const modes of [["unified"], ["tags"], ["recent"], ["all", "unified"],
-    ["favorite", "tags"], ["all", "unknown"], [], null, undefined, "all"]) {
+test("known folder modes allow filtering while unknown modes fail open", () => {
+  for (const modes of [["all"], ["favorite"], ["unread"], ["recent"], ["smart"], ["tags"],
+    ["all", "favorite"], ["favorite", "all"]]) {
+    assert.equal(model.allowsFiltering(modes), true);
+  }
+  for (const modes of [["unified"], ["all", "unified"], ["favorite", "unknown"],
+    ["all", "unknown"], [], null, undefined, "all"]) {
     assert.equal(model.allowsFiltering(modes), false);
   }
 });

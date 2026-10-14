@@ -102,7 +102,8 @@ const defaultLabels = {
   unreadCount: "Unread messages: {count}", totalCount: "Total messages: {count}"
 };
 
-function fixture(labels = defaultLabels, cssText = "/* fixture CSS */", onSelect = () => {}, onExpandedChanged = () => {}) {
+function fixture(labels = defaultLabels, cssText = "/* fixture CSS */", onSelect = () => {},
+    onExpandedChanged = () => {}, onContextMenu = () => {}) {
   assert.ok(existsSync("addon/experiment/account-view.js"), "AccountPaneView implementation exists");
   const viewModule = loadScript("addon/experiment/account-view.js", "AccountPaneView");
   let nativeHeading;
@@ -134,12 +135,16 @@ function fixture(labels = defaultLabels, cssText = "/* fixture CSS */", onSelect
   const template = document.createElement("template");
   folderPane.append(dropIndicator, header, tree, template);
   document.body.append(folderPane);
-  const selected = [], expandedChanges = [];
+  const selected = [], expandedChanges = [], contextMenus = [];
   const view = viewModule.create({ document, folderPane, labels: { ...defaultLabels, ...labels }, cssText,
     onSelect: id => { selected.push(id); onSelect(id); },
-    onExpandedChanged: value => { expandedChanges.push(value); onExpandedChanged(value); } });
+    onExpandedChanged: value => { expandedChanges.push(value); onExpandedChanged(value); },
+    onContextMenu: (id, event, anchor) => {
+      contextMenus.push({ id, event, anchor });
+      onContextMenu(id, event, anchor);
+    } });
   return { document, folderPane, dropIndicator, header, tree, template, nativeHeading,
-    selected, expandedChanges, view };
+    selected, expandedChanges, contextMenus, view };
 }
 
 const section = f => f.document.getElementById("accountpane-accounts");
@@ -228,6 +233,22 @@ test("assistive-technology focus on disclosure lets Enter and Space toggle witho
   }
   assert.deepEqual(f.selected, []);
   assert.deepEqual(f.expandedChanges, [false, true]);
+});
+
+test("account context menu is delegated without selecting or navigating and All Accounts has none", () => {
+  const f = fixture();
+  f.view.render(accounts, null);
+  const items = treeItems(f);
+  const childEvent = row(items[1]).dispatch("contextmenu", { button: 2, screenX: 20, screenY: 30 });
+  assert.equal(childEvent.defaultPrevented, true);
+  assert.equal(childEvent.stopped, true);
+  assert.equal(f.contextMenus.length, 1);
+  assert.equal(f.contextMenus[0].id, "a");
+  assert.equal(f.contextMenus[0].anchor, row(items[1]));
+  row(items[0]).dispatch("contextmenu", { button: 2 });
+  assert.equal(f.contextMenus.length, 1);
+  assert.deepEqual(f.selected, []);
+  assert.equal(items[0].getAttribute("aria-selected"), "true");
 });
 
 test("collapsing a focused selected child moves focus to root without selecting All Accounts", () => {

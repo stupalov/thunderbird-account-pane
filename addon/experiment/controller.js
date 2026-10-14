@@ -60,7 +60,7 @@ var AccountPaneController = (() => {
       savePatch({ accountsExpanded: value });
     }
 
-    function selectAccount(id) {
+    function selectAccount(id, explicit = true) {
       if (disposed) {
         return;
       }
@@ -72,9 +72,14 @@ var AccountPaneController = (() => {
       }
       // Resolve against existing folders of this account before hiding rows.
       const allowed = supported() && id !== null && validAccount(id);
-      const target = allowed ? model.resolveTarget(id, displayableFolders(id), lastFolders) : null;
+      const ready = allowed && (!explicit || adapter.ensureAllFolders?.() !== false);
+      const mode = explicit && adapter.activeModes().includes("all") ? "all" : undefined;
+      const folders = ready ? adapter.listFolders(id).filter(folder =>
+        adapter.canDisplayFolder(folder.uri, mode)) : [];
+      const target = ready ? explicit ? model.firstTarget(id, folders) :
+        model.resolveTarget(id, folders, lastFolders) : null;
       changeSelection(target ? id : null);
-      if (target && adapter.displayFolder(target.uri) === false) {
+      if (target && adapter.displayFolder(target.uri, mode) === false) {
         changeSelection(null);
       }
     }
@@ -148,7 +153,7 @@ var AccountPaneController = (() => {
         // Native delete/rename may leave a stale folder object or clear gFolder.
         if (!current || current.accountId === id && (!adapter.canDisplayFolder(current.uri) ||
             !folders.some(folder => folder.available && folder.uri === current.uri))) {
-          selectAccount(id);
+          selectAccount(id, false);
         }
       }
     }

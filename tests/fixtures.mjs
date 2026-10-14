@@ -36,12 +36,22 @@ export function makeModelFixture() {
 // CSS/hidden attributes do not. All identifiers are synthetic.
 export function makeTreeRow(accountId, parent = null) {
   const attributes = new Map();
-  return {
+  const row = {
     accountId, parent, collapsed: false, unselectable: false,
+    dataset: {}, modeName: "favorite", depth: parent ? parent.depth + 1 : 1,
+    style: { values: new Map(), getPropertyValue(name) { return this.values.get(name) ?? ""; },
+      getPropertyPriority() { return ""; }, setProperty(name, value) { this.values.set(name, String(value)); },
+      removeProperty(name) { this.values.delete(name); } },
+    classList: { owner: null, contains(name) { return Boolean(this.owner[name]); },
+      add(name) { this.owner[name] = true; }, remove(name) { this.owner[name] = false; } },
+    get parentNode() { return { closest: () => this.parent }; },
+    contains(row) { for (let p = row; p; p = p.parent) { if (p === this) { return true; } } return false; },
     getAttribute(name) { return attributes.get(name) ?? null; },
     setAttribute(name, value) { attributes.set(name, String(value)); },
     removeAttribute(name) { attributes.delete(name); }
   };
+  row.classList.owner = row;
+  return row;
 }
 
 export function makeTreeFixture(accountIds = ["a", "b"]) {
@@ -59,7 +69,7 @@ export function makeTreeFixture(accountIds = ["a", "b"]) {
     }
     get rowCount() { return this.rows.length; }
     getRowAtIndex(index) { return this.rows[index]; }
-    querySelectorAll() { return this.allRows.filter(row => !row.unselectable); }
+    querySelectorAll(selector) { return selector === "li" ? this.allRows : this.allRows.filter(row => !row.unselectable); }
     updateSelection(row, event) {
       events.push({ type: "update", receiver: this, args: [row, event], rows: [...this.rows] });
       this.selection = row ? [row] : [];
@@ -70,7 +80,17 @@ export function makeTreeFixture(accountIds = ["a", "b"]) {
       this.selection = [...rows];
       return "swapped";
     }
-    key(key) { return this.updateSelection(this.getRowAtIndex(key === "Home" ? 0 : this.rowCount - 1)); }
+    key(key) {
+      if (key === "ArrowLeft") {
+        const selected = this.selection[0];
+        let parent = selected?.parent;
+        while (parent?.unselectable) { parent = parent.parent; }
+        if (parent && (!selected.children || selected.collapsed)) { return this.updateSelection(parent); }
+        if (selected?.children) { selected.collapsed = true; }
+        return;
+      }
+      return this.updateSelection(this.getRowAtIndex(key === "Home" ? 0 : this.rowCount - 1));
+    }
   }
   const tree = new Tree();
   const observers = [];

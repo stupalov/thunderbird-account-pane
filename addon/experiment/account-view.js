@@ -26,7 +26,8 @@ var AccountPaneView = (() => {
     return svg;
   }
 
-  function create({ document, folderPane, labels, onSelect, onExpandedChanged = () => {}, cssText }) {
+  function create({ document, folderPane, labels, onSelect, onExpandedChanged = () => {},
+    onContextMenu = () => {}, cssText }) {
     const tree = document.getElementById("folderTree");
     if (!tree || tree.parentNode !== folderPane) {
       throw new TypeError("AccountPane requires a supported folder pane");
@@ -159,7 +160,15 @@ var AccountPaneView = (() => {
       onExpandedChanged(expanded);
     }
 
+    function onContextMenuEvent(event) {
+      const entry = entryFor(event.target);
+      if (!entry || entry.id === null) return;
+      consume(event);
+      onContextMenu(entry.id, event, entry.row);
+    }
+
     function onClick(event) {
+      if (event.button && event.button !== 0) return;
       const root = rootEntry();
       if (root?.disclosure.contains(event.target)) {
         event.preventDefault();
@@ -230,6 +239,7 @@ var AccountPaneView = (() => {
       next.option.focus();
     }
 
+    list.addEventListener("contextmenu", onContextMenuEvent);
     list.addEventListener("click", onClick);
     list.addEventListener("keydown", onKeyDown);
     list.addEventListener("focusin", onFocus);
@@ -301,6 +311,7 @@ var AccountPaneView = (() => {
     function dispose() {
       if (disposed) return;
       disposed = true;
+      list.removeEventListener("contextmenu", onContextMenuEvent);
       list.removeEventListener("click", onClick);
       list.removeEventListener("keydown", onKeyDown);
       list.removeEventListener("focusin", onFocus);

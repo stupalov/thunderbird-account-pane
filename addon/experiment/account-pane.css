@@ -185,3 +185,17 @@
 #folderTree [data-accountpane-hidden="true"] {
   display: none !important;
 }
+
+/* Keep the native tree hierarchy and keyboard implementation while promoting
+   folders past account/aggregate roots in the selected account view. */
+#folderTree li[data-accountpane-flattened="true"] > .container {
+  display: none !important;
+}
+#folderTree li[style*="--accountpane-indent"] > .container {
+  --indent: var(--accountpane-indent);
+}
+#folderTree li[data-accountpane-flattened="true"] > ul {
+  /* Native collapse also leaves height:0 and may finish an animation later. */
+  display: block !important;
+  height: auto !important;
+}

@@ -10,10 +10,12 @@ function fixture({ failFilter = false, delayCSS = false, failController = false,
   const settings = { version: 1, selectedAccountId: null, lastFolders: {} };
   const FolderUtils = { compareFolders() {} }, MailServices = {}, Ci = {};
   const pane = { document: { getElementById: () => ({}) } };
-  const adapter = { accountForRow: row => row.account, dispose: () => events.push("adapter-dispose") };
+  const adapter = { accountForRow: row => row.account,
+    showAccountContextMenu: (...args) => events.push(["context", ...args]),
+    dispose: () => events.push("adapter-dispose") };
   const filter = { dispose: () => events.push("filter-dispose") };
   const view = { dispose: () => events.push("view-dispose") };
-  let follow, select, save, expand;
+  let follow, select, save, expand, contextMenu;
   const helpers = {
     AccountPaneModel: {},
     AccountPaneAdapter: { create(options) { assert.equal(options.window, pane);
@@ -23,7 +25,7 @@ function fixture({ failFilter = false, delayCSS = false, failController = false,
       assert.equal(options.labels.allAccounts, "All Accounts"); assert.equal(options.cssText, "fixture CSS");
       assert.equal(options.labels.expandAccounts, "Expand accounts");
       assert.equal(options.labels.collapseAccounts, "Collapse accounts");
-      select = options.onSelect; expand = options.onExpandedChanged; return view; } },
+      select = options.onSelect; expand = options.onExpandedChanged; contextMenu = options.onContextMenu; return view; } },
     AccountPaneTreeFilter: { attach(options) { events.push("filter");
       assert.equal(options.accountForRow({ account: "a" }), "a"); follow = options.followTarget;
       if (failFilter) throw Error("private"); return filter; } },
@@ -70,7 +72,7 @@ function fixture({ failFilter = false, delayCSS = false, failController = false,
   const implementation = new scope.accountPane(extension), api = implementation.getAPI({}).accountPane;
   return { implementation, api, events, logs, loaded, settings, controllers,
     attach() { disposer = attach(pane); return disposer; }, select: id => select(id), follow: id => follow(id),
-    expand: value => expand(value),
+    expand: value => expand(value), contextMenu: (...args) => contextMenu(...args),
     save: patch => save(patch), completeCSS: () => cssCallback({ available: () => 11, close() {} }, 0),
     listen: fire => register(fire), scope };
 }
@@ -81,6 +83,9 @@ test("Experiment isolates helpers and wires controller adapter filter view and s
   assert.equal(f.events.filter(v => v === "start").length, 1); assert.equal(f.loaded.length, 6);
   assert.ok(f.loaded.every(v => v.scope === f.loaded[0].scope)); assert.equal(f.scope.AccountPaneModel, undefined);
   f.select("a"); f.follow(null); f.expand(false);
+  const menuEvent = { button: 2 }, anchor = {};
+  f.contextMenu("a", menuEvent, anchor);
+  assert.deepEqual(f.events.at(-1), ["context", "a", menuEvent, anchor]);
   assert.ok(f.events.some(v => Array.isArray(v) && v[0] === "follow" && v[1] === null));
   assert.ok(f.events.some(v => Array.isArray(v) && v[0] === "expanded" && v[1] === false));
   assert.equal(await f.save({ selectedAccountId: "a" }), "ack"); assert.equal(patches.length, 1);

@@ -156,20 +156,85 @@ var AccountPaneAdapter = (() => {
       }
     }
 
-    function canDisplayFolder(uri) {
+    function ensureAllFolders() {
+      if (disposed) return false;
       try {
-        return !disposed && Boolean(window.folderPane.getRowForFolder(uri));
+        const modes = activeModes();
+        if (!modes.includes("all")) window.folderPane.activeModes = [...modes, "all"];
+        return activeModes().includes("all");
       } catch {
         return false;
       }
     }
 
-    function displayFolder(uri) {
-      if (!canDisplayFolder(uri)) {
+    function showAccountContextMenu(accountId, event, anchor) {
+      if (disposed || !listAccounts().some(account => account.id === accountId)) return false;
+      const native = window.folderPaneContextMenu;
+      const popup = window.document.getElementById("folderPaneContext");
+      if (!native || !popup || !anchor) return false;
+      let folder;
+      try {
+        folder = MailServices.accounts.accounts.find(account => account.key === accountId)
+          ?.incomingServer.rootFolder;
+      } catch {
+        return false;
+      }
+      if (!folder) return false;
+      let active = true;
+      const finish = (hide = false) => {
+        if (!active) return;
+        active = false;
+        popup.removeEventListener("popuphidden", onHidden);
+        cleanups.delete(cleanup);
+        if (native._overrideFolder === folder) {
+          if (hide) popup.hidePopup();
+          // popuphidden normally clears the override through Thunderbird itself.
+          if (native._overrideFolder === folder) native.clearOverrideFolder();
+        }
+      };
+      const onHidden = hiddenEvent => {
+        if (hiddenEvent.target === popup) finish();
+      };
+      const cleanup = () => finish(true);
+      try {
+        // Close the previous invocation before assigning a new native override.
+        if (popup.state === "open" || popup.state === "showing") popup.hidePopup();
+        native.setOverrideFolder(folder);
+        popup.addEventListener("popuphidden", onHidden);
+        cleanups.add(cleanup);
+        if (event.button === 2) {
+          popup.openPopupAtScreen(event.screenX, event.screenY, true);
+        } else {
+          popup.openPopup(anchor, "after_end", 0, 0, true);
+        }
+        return true;
+      } catch {
+        finish(true);
+        return false;
+      }
+    }
+
+    function canDisplayFolder(uri, mode) {
+      try {
+        return !disposed && (!mode || activeModes().includes(mode)) &&
+          Boolean(window.folderPane.getRowForFolder(uri, mode));
+      } catch {
+        return false;
+      }
+    }
+
+    function displayFolder(uri, mode) {
+      if (!canDisplayFolder(uri, mode)) {
         return false;
       }
       try {
-        window.displayFolder(uri);
+        if (mode) {
+          const row = window.folderPane.getRowForFolder(uri, mode);
+          window.ensureFolderTreeRowIsVisible(row);
+          window.document.getElementById("folderTree").updateSelection(row);
+        } else {
+          window.displayFolder(uri);
+        }
         return true;
       } catch {
         // A folder/row can disappear between resolution and native navigation.
@@ -313,7 +378,7 @@ var AccountPaneAdapter = (() => {
       }
     }
     return { listAccounts, listFolders, currentFolder, selectedFolders, activeModes, canDisplayFolder,
-      displayFolder, accountForRow, messageCounts, onMessageCountsChanged,
+      displayFolder, ensureAllFolders, showAccountContextMenu, accountForRow, messageCounts, onMessageCountsChanged,
       onFolderChanged, onAccountsChanged, onModesChanged, dispose };
   }
   return { create };

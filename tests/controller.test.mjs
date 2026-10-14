@@ -8,7 +8,7 @@ const model = loadScript("addon/lib/model.js", "AccountPaneModel");
 const controllerPath = "addon/experiment/controller.js";
 const Controller = existsSync(controllerPath) ? loadScript(controllerPath, "AccountPaneController") : null;
 
-function fixture({ settings = {}, current = null, modes = ["all", "favorite"], canDisplayFolder = () => true, saveResult, trackCounts = false } = {}) {
+function fixture({ settings = {}, current = null, modes = ["all", "favorite"], canDisplayFolder = () => true, saveResult, trackCounts = false, ensureAllFolders } = {}) {
   const data = makeModelFixture();
   const listeners = { folder: new Set(), accounts: new Set(), modes: new Set(), counts: new Set() };
   const effects = [], saved = [], displayCalls = [];
@@ -23,6 +23,7 @@ function fixture({ settings = {}, current = null, modes = ["all", "favorite"], c
     selectedFolders: () => [],
     activeModes: () => modes,
     canDisplayFolder,
+    ...(ensureAllFolders ? { ensureAllFolders } : {}),
     displayFolder(uri) { displayCalls.push(uri); effects.push(["display", uri]); },
     onFolderChanged: subscribe("folder"), onAccountsChanged: subscribe("accounts"),
     onModesChanged: subscribe("modes"),
@@ -60,15 +61,15 @@ test("count notifications update badges without filtering, rendering, navigation
   assert.deepEqual(f.effects, []);
 });
 
-test("switching back restores the last actually opened account folder", () => {
+test("explicit account switching remembers the departed folder but opens the first real folder", () => {
   const f = fixture();
   f.controller.selectAccount("a");
   assert.deepEqual(f.saved, [{ selectedAccountId: "a" }]);
-  f.adapter.emitFolder({ accountId: "a", uri: "fixture://a/archive", available: true });
+  f.adapter.emitFolder({ accountId: "a", uri: "fixture://a/renamed-inbox", available: true });
   f.controller.selectAccount("b");
   f.controller.selectAccount("a");
   assert.equal(f.displayCalls.at(-1), "fixture://a/archive");
-  assert.deepEqual(f.saved[1], { lastFolder: { accountId: "a", uri: "fixture://a/archive" } });
+  assert.deepEqual(f.saved[1], { lastFolder: { accountId: "a", uri: "fixture://a/renamed-inbox" } });
 });
 
 test("all accounts never displays a folder", () => {
@@ -87,10 +88,51 @@ test("filter and view switch before native display during rapid a b a navigation
   f.effects.length = 0;
   for (const id of ["a", "b", "a"]) { f.controller.selectAccount(id); }
   assert.deepEqual(f.effects.map(effect => effect.slice(0, 2)), [
-    ["filter", "a"], ["render", "a"], ["display", "fixture://a/renamed-inbox"],
+    ["filter", "a"], ["render", "a"], ["display", "fixture://a/archive"],
     ["filter", "b"], ["render", "b"], ["display", "fixture://b/inbox"],
-    ["filter", "a"], ["render", "a"], ["display", "fixture://a/renamed-inbox"]
+    ["filter", "a"], ["render", "a"], ["display", "fixture://a/archive"]
   ]);
+});
+
+test("explicit account switch prefers an All Folders row when Favorites also contains the URI", () => {
+  const modes = [];
+  const f = fixture({ canDisplayFolder(uri, mode) {
+    modes.push([uri, mode]);
+    return mode === "all" && uri === "fixture://a/archive";
+  } });
+  f.adapter.displayFolder = (uri, mode) => {
+    f.displayCalls.push(uri);
+    modes.push(["display", uri, mode]);
+    return true;
+  };
+  f.controller.selectAccount("a");
+  assert.equal(f.displayCalls.at(-1), "fixture://a/archive");
+  assert.deepEqual(modes.at(-1), ["display", "fixture://a/archive", "all"]);
+});
+
+test("explicit account clicks preserve every known folder mode and expose All Folders", () => {
+  const knownModes = [["all"], ["favorite"], ["unread"], ["recent"], ["smart"], ["tags"],
+    ["favorite", "unread"]];
+  for (const modes of knownModes) {
+    let ensured = 0;
+    const attemptedModes = [];
+    const f = fixture({ modes, ensureAllFolders() { ensured++; return true; },
+      canDisplayFolder(uri, mode) {
+        attemptedModes.push(mode);
+        return uri === "fixture://a/archive";
+      } });
+    f.adapter.displayFolder = (uri, mode) => {
+      f.displayCalls.push(uri);
+      attemptedModes.push(mode);
+      return true;
+    };
+    f.controller.selectAccount("a");
+    assert.equal(f.selected(), "a", `${modes} keeps account filtering`);
+    assert.equal(ensured, 1, `${modes} adds the All Folders rows`);
+    assert.equal(f.displayCalls.at(-1), "fixture://a/archive");
+    assert.ok(attemptedModes.every(mode => mode === (modes.includes("all") ? "all" : undefined)));
+    f.controller.dispose();
+  }
 });
 
 test("tree follow changes restriction without recursive display and null clears mixed selection", () => {
@@ -152,9 +194,13 @@ test("startup history stays local to each tab until its actual current folder is
   archive.controller.selectAccount("b");
   inbox.controller.updateSettings({ lastFolders: { a: "fixture://a/archive" } });
   inbox.controller.selectAccount("b");
+  inbox.adapter.emitFolder(null);
+  inbox.adapter.emitAccounts();
   archive.controller.updateSettings({ lastFolders: { a: "fixture://a/renamed-inbox" } });
   archive.controller.selectAccount("a");
   inbox.controller.selectAccount("a");
+  inbox.adapter.emitFolder(null);
+  inbox.adapter.emitAccounts();
   assert.equal(archive.displayCalls.at(-1), "fixture://a/archive");
   assert.equal(inbox.displayCalls.at(-1), "fixture://a/renamed-inbox");
   archive.controller.dispose(); inbox.controller.dispose();
@@ -175,9 +221,9 @@ test("unsupported modes clear restriction and returning to supported modes waits
   assert.equal(f.selected(), "b");
 });
 
-test("initial unsupported modes override saved and current account", () => {
+test("initial unknown modes override saved and current account", () => {
   const f = fixture({ current: { accountId: "b", uri: "fixture://b/inbox" },
-    settings: { selectedAccountId: "a" }, modes: ["unread"] });
+    settings: { selectedAccountId: "a" }, modes: ["unknown"] });
   assert.equal(f.selected(), null);
   assert.deepEqual(f.displayCalls, []);
 });
@@ -198,13 +244,13 @@ for (const cause of ["deleted", "renamed", "missing", "foreign"]) {
   test(`${cause} saved URI falls back to an existing Inbox in the same account`, () => {
     const uri = cause === "foreign" ? "fixture://b/inbox" :
       cause === "missing" ? "fixture://a/gone" : "fixture://a/archive";
-    const f = fixture({ settings: { lastFolders: { a: uri } } });
+    const f = fixture({ settings: { selectedAccountId: "a", lastFolders: { a: uri } } });
     if (cause === "deleted") {
       f.data.folders = f.data.folders.filter(folder => folder.uri !== uri);
     } else if (cause === "renamed") {
       f.data.folders.find(folder => folder.uri === uri).uri = "fixture://a/renamed-archive";
     }
-    f.controller.selectAccount("a");
+    f.adapter.emitAccounts();
     assert.equal(f.displayCalls.at(-1), "fixture://a/renamed-inbox");
     assert.ok(!f.saved.some(patch => patch.lastFolder));
   });
@@ -360,31 +406,40 @@ test("delayed shared snapshot cannot overwrite pending local history while other
   f.adapter.emitFolder({ accountId: "a", uri: "fixture://a/archive", available: true });
   f.controller.updateSettings({ lastFolders: { a: "fixture://a/renamed-inbox", b: "fixture://b/root" } });
   f.controller.selectAccount("b");
+  f.adapter.emitFolder(null);
+  f.adapter.emitAccounts();
   assert.equal(f.displayCalls.at(-1), "fixture://b/root");
   f.controller.selectAccount("a");
   assert.equal(f.displayCalls.at(-1), "fixture://a/archive");
   f.controller.updateSettings({ lastFolders: { a: "fixture://a/archive" } });
   f.controller.updateSettings({ lastFolders: { a: "fixture://a/renamed-inbox" } });
-  f.controller.selectAccount("a");
+  f.adapter.emitFolder(null);
+  f.adapter.emitAccounts();
   assert.equal(f.displayCalls.at(-1), "fixture://a/renamed-inbox");
 });
 
 test("older acknowledgement cannot replace the newest of rapid local folder events", () => {
   const f = fixture();
+  f.controller.selectAccount("a");
+  f.displayCalls.length = 0;
   f.adapter.emitFolder({ accountId: "a", uri: "fixture://a/archive", available: true });
   f.adapter.emitFolder({ accountId: "a", uri: "fixture://a/renamed-inbox", available: true });
   f.controller.updateSettings({ lastFolders: { a: "fixture://a/archive" } });
-  f.controller.selectAccount("a");
+  f.adapter.emitFolder(null);
+  f.adapter.emitAccounts();
   assert.equal(f.displayCalls.at(-1), "fixture://a/renamed-inbox");
 });
 
 
 test("rejected history save releases pending URI for a later shared snapshot", async () => {
   const f = fixture({ saveResult: patch => patch.lastFolder ? Promise.reject(Error("storage failed")) : undefined });
+  f.controller.selectAccount("a");
+  f.displayCalls.length = 0;
   f.adapter.emitFolder({ accountId: "a", uri: "fixture://a/archive", available: true });
   await new Promise(setImmediate);
   f.controller.updateSettings({ lastFolders: { a: "fixture://a/renamed-inbox" } });
-  f.controller.selectAccount("a");
+  f.adapter.emitFolder(null);
+  f.adapter.emitAccounts();
   assert.equal(f.displayCalls.at(-1), "fixture://a/renamed-inbox");
 });
 
@@ -405,6 +460,8 @@ test("old save rejection cannot release a newer pending event for the same URI",
 
 test("removed account drops pending history before a new shared snapshot", () => {
   const f = fixture();
+  f.controller.selectAccount("a");
+  f.displayCalls.length = 0;
   f.adapter.emitFolder({ accountId: "a", uri: "fixture://a/archive", available: true });
   const account = f.data.accounts.find(item => item.id === "a");
   f.data.accounts = f.data.accounts.filter(item => item.id !== "a");
@@ -412,6 +469,9 @@ test("removed account drops pending history before a new shared snapshot", () =>
   f.data.accounts.push(account);
   f.controller.updateSettings({ lastFolders: { a: "fixture://a/renamed-inbox" } });
   f.controller.selectAccount("a");
+  f.displayCalls.length = 0;
+  f.adapter.emitFolder(null);
+  f.adapter.emitAccounts();
   assert.equal(f.displayCalls.at(-1), "fixture://a/renamed-inbox");
 });
 

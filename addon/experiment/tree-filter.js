@@ -45,6 +45,59 @@ var AccountPaneTreeFilter = (() => {
     }
 
     const marked = new Map();
+    const flattened = new Map();
+    const indented = new Map();
+    const flattenMarker = "data-accountpane-flattened";
+    const indentProperty = "--accountpane-indent";
+
+    function restoreFlattened(row) {
+      const previous = flattened.get(row);
+      if (row.getAttribute("aria-expanded") === "true") {
+        if (previous.expanded === null) { row.removeAttribute("aria-expanded"); }
+        else { row.setAttribute("aria-expanded", previous.expanded); }
+      }
+      if (row.getAttribute("role") === "presentation") {
+        if (previous.role === null) { row.removeAttribute("role"); }
+        else { row.setAttribute("role", previous.role); }
+      }
+      if (row.getAttribute(flattenMarker) === "true") {
+        if (previous.marker === null) { row.removeAttribute(flattenMarker); }
+        else { row.setAttribute(flattenMarker, previous.marker); }
+        if (!previous.unselectable) { row.classList.remove("unselectable"); }
+        if (previous.collapsed) { row.classList.add("collapsed"); }
+        if (row.childList) { row.childList.hidden = previous.hidden; }
+      }
+      flattened.delete(row);
+    }
+
+    function restoreIndent(row) {
+      const previous = indented.get(row);
+      if (row.style.getPropertyValue(indentProperty) === previous.applied) {
+        if (previous.value) { row.style.setProperty(indentProperty, previous.value, previous.priority); }
+        else { row.style.removeProperty(indentProperty); }
+      }
+      indented.delete(row);
+    }
+
+    function flatten(row) {
+      if (!flattened.has(row)) {
+        flattened.set(row, {
+          marker: row.getAttribute(flattenMarker), role: row.getAttribute("role"),
+          expanded: row.getAttribute("aria-expanded"),
+          unselectable: row.classList.contains("unselectable"),
+          collapsed: row.classList.contains("collapsed"), hidden: row.childList.hidden
+        });
+      }
+      row.setAttribute(flattenMarker, "true");
+      // The row remains a structural ancestor, without an accessible account
+      // entry. aria-hidden would incorrectly hide its folder descendants too.
+      row.setAttribute("role", "presentation");
+      row.setAttribute("aria-expanded", "true");
+      // Do not call native expandRow: its expanded event persists folder state.
+      row.classList.add("unselectable");
+      row.classList.remove("collapsed");
+      row.childList.hidden = false;
+    }
     let selectedAccountId = null;
     let disposed = false;
     let observer;
@@ -64,32 +117,78 @@ var AccountPaneTreeFilter = (() => {
 
     function clearRestrictions() {
       selectedAccountId = null;
-      for (const row of marked.keys()) {
-        restoreMarker(row);
-      }
+      for (const row of marked.keys()) { restoreMarker(row); }
+      for (const row of flattened.keys()) { restoreFlattened(row); }
+      for (const row of indented.keys()) { restoreIndent(row); }
     }
 
     function refresh() {
       if (disposed) {
         return;
       }
-      // Include collapsed rows, unlike the native getter, so expanding a branch
-      // cannot expose a foreign row. Mode headers are unselectable, not folders.
-      const rows = new Set(tree.querySelectorAll("li:not(.unselectable)"));
+      // Include collapsed and our temporarily unselectable roots on every pass.
+      const rows = new Set(tree.querySelectorAll("li"));
+      const accounts = new Map([...rows].map(row => [row, accountForRow(row)]));
+      const retainedGroups = new Set();
+      const roots = new Set();
+      if (selectedAccountId !== null) {
+        for (const row of rows) {
+          if (accounts.get(row) === selectedAccountId) {
+            if (row.modeName === "all" && row.dataset?.serverType &&
+                row.childList && row.childList.children.length > 0) {
+              roots.add(row);
+            }
+            // Unified virtual parents have no real account of their own. Keep
+            // their branches but never their cross-account selectable results.
+            for (let parent = row.parentNode?.closest?.("li"); parent && rows.has(parent);
+                 parent = parent.parentNode?.closest?.("li")) {
+              if (parent.modeName === "smart" && accounts.get(parent) === null && parent.childList) {
+                retainedGroups.add(parent);
+                roots.add(parent);
+              }
+            }
+          }
+        }
+      }
+      for (const row of flattened.keys()) {
+        if (!roots.has(row)) { restoreFlattened(row); }
+      }
+      for (const row of roots) { flatten(row); }
       for (const row of marked.keys()) {
         if (!rows.has(row) || selectedAccountId === null ||
-            accountForRow(row) === selectedAccountId) {
+            accounts.get(row) === selectedAccountId || retainedGroups.has(row)) {
           restoreMarker(row);
         }
       }
       for (const row of rows) {
-        if (selectedAccountId !== null && accountForRow(row) !== selectedAccountId &&
+        if (selectedAccountId !== null && accounts.get(row) !== selectedAccountId &&
+            !retainedGroups.has(row) && !row.classList?.contains("unselectable") &&
             row.getAttribute(marker) !== "true") {
-          // If another owner replaced our marker, this is a fresh change:
-          // restore their current value when our restriction is removed.
           marked.set(row, row.getAttribute(marker));
           row.setAttribute(marker, "true");
         }
+        let promotedAncestors = 0;
+        for (let parent = row.parentNode?.closest?.("li"); parent && rows.has(parent);
+             parent = parent.parentNode?.closest?.("li")) {
+          if (roots.has(parent)) { promotedAncestors++; }
+        }
+        if (promotedAncestors && Number.isFinite(row.depth) && row.style) {
+          if (!indented.has(row)) {
+            indented.set(row, { value: row.style.getPropertyValue(indentProperty),
+              priority: row.style.getPropertyPriority(indentProperty) });
+          }
+          const previous = indented.get(row);
+          if (previous.applied !== undefined &&
+              row.style.getPropertyValue(indentProperty) !== previous.applied) {
+            previous.value = row.style.getPropertyValue(indentProperty);
+            previous.priority = row.style.getPropertyPriority(indentProperty);
+          }
+          previous.applied = `${Math.max(0, row.depth - 1 - promotedAncestors) * 16}px`;
+          row.style.setProperty(indentProperty, previous.applied);
+        } else if (indented.has(row)) { restoreIndent(row); }
+      }
+      for (const row of indented.keys()) {
+        if (!rows.has(row)) { restoreIndent(row); }
       }
     }
 
@@ -127,7 +226,7 @@ var AccountPaneTreeFilter = (() => {
         return rows;
       }
       try {
-        return rows.filter(row => accountForRow(row) === selectedAccountId);
+        return rows.filter(row => !flattened.has(row) && accountForRow(row) === selectedAccountId);
       } catch {
         clearRestrictions();
         try {

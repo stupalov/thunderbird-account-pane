@@ -334,3 +334,184 @@ test("native rows getter exceptions propagate without clearing account restricti
   assert.equal(f.events.length, 0);
   filter.dispose();
 });
+
+function serverBranch(f, accountId, collapsed = true) {
+  const root = f.tree.allRows.find(row => row.accountId === accountId);
+  root.modeName = "all";
+  root.dataset.serverType = "imap";
+  root.collapsed = collapsed;
+  root.children = true;
+  root.childList = { hidden: collapsed, children: [] };
+  const child = makeTreeRow(accountId, root);
+  child.modeName = "all";
+  root.childList.children.push(child);
+  f.tree.allRows.splice(f.tree.allRows.indexOf(root) + 1, 0, child);
+  return { root, child };
+}
+
+test("specific All Folders promotes children of collapsed server and restores native root", () => {
+  const f = makeTreeFixture();
+  const { root, child } = serverBranch(f, "a");
+  const filter = filters.attach(f.options);
+  filter.apply("a");
+  assert.deepEqual(Array.from(f.tree.rows), [child]);
+  assert.equal(root.unselectable, true);
+  assert.equal(root.collapsed, false);
+  assert.equal(root.childList.hidden, false);
+  assert.equal(root.getAttribute("data-accountpane-flattened"), "true");
+  assert.equal(child.style.getPropertyValue("--accountpane-indent"), "0px");
+  f.tree.key("Home");
+  assert.deepEqual(f.tree.selection, [child]);
+  f.tree.key("ArrowLeft");
+  assert.deepEqual(f.tree.selection, [child]);
+  assert.equal(root.collapsed, false);
+  filter.apply(null);
+  assert.equal(root.unselectable, false);
+  assert.equal(root.collapsed, true);
+  assert.equal(root.childList.hidden, true);
+  assert.equal(root.getAttribute("data-accountpane-flattened"), null);
+  assert.equal(child.style.getPropertyValue("--accountpane-indent"), "");
+  filter.dispose();
+});
+
+test("smart virtual parent retains only own children without exposing aggregate row", () => {
+  const f = makeTreeFixture([]);
+  const group = makeTreeRow(null);
+  group.modeName = "smart"; group.children = true; group.collapsed = true;
+  group.childList = { hidden: true };
+  const a = makeTreeRow("a", group); a.modeName = "smart";
+  const b = makeTreeRow("b", group); b.modeName = "smart";
+  const tag = makeTreeRow(null); tag.modeName = "tags";
+  f.tree.allRows.push(group, a, b, tag);
+  const filter = filters.attach(f.options);
+  filter.apply("a");
+  assert.deepEqual(Array.from(f.tree.rows), [a]);
+  assert.equal(group.getAttribute("data-accountpane-hidden"), null);
+  assert.equal(group.unselectable, true);
+  assert.equal(b.getAttribute("data-accountpane-hidden"), "true");
+  assert.equal(tag.getAttribute("data-accountpane-hidden"), "true");
+  filter.apply("b");
+  assert.deepEqual(Array.from(f.tree.rows), [b]);
+  filter.dispose();
+  assert.equal(group.collapsed, true);
+  assert.equal(group.childList.hidden, true);
+  assert.equal(group.unselectable, false);
+});
+
+test("removed flattened roots restore on rebuild and descendants retain nested collapse", () => {
+  const f = makeTreeFixture();
+  const { root, child } = serverBranch(f, "a", false);
+  child.collapsed = true;
+  const grandchild = makeTreeRow("a", child); grandchild.modeName = "all";
+  f.tree.allRows.push(grandchild);
+  const filter = filters.attach(f.options);
+  filter.apply("a");
+  assert.deepEqual(Array.from(f.tree.rows), [child]);
+  assert.equal(grandchild.style.getPropertyValue("--accountpane-indent"), "16px");
+  f.tree.allRows = f.tree.allRows.filter(row => !root.contains(row));
+  f.mutate();
+  assert.equal(root.unselectable, false);
+  assert.equal(root.collapsed, false);
+  assert.equal(child.collapsed, true);
+  assert.equal(grandchild.style.getPropertyValue("--accountpane-indent"), "");
+  filter.dispose();
+});
+
+test("resolver failure restores flattened roots without persisting expansion", () => {
+  const f = makeTreeFixture();
+  const { root, child } = serverBranch(f, "a");
+  let fails = false;
+  f.options.accountForRow = row => {
+    if (fails && row.accountId === "b") { throw new Error("synthetic lookup failure"); }
+    return row.accountId;
+  };
+  const filter = filters.attach(f.options);
+  filter.apply("a");
+  fails = true;
+  f.tree.rows;
+  assert.equal(root.unselectable, false);
+  assert.equal(root.collapsed, true);
+  assert.equal(root.childList.hidden, true);
+  assert.equal(child.style.getPropertyValue("--accountpane-indent"), "");
+  fails = false;
+  assert.deepEqual(Array.from(f.tree.rows), [root, f.tree.allRows[2]]);
+  filter.dispose();
+});
+
+test("promotion preserves later indent owner and account roots with no folders", () => {
+  const f = makeTreeFixture();
+  const { root, child } = serverBranch(f, "a");
+  const filter = filters.attach(f.options);
+  filter.apply("a");
+  child.style.setProperty("--accountpane-indent", "7px");
+  filter.refresh();
+  assert.equal(child.style.getPropertyValue("--accountpane-indent"), "0px");
+  filter.apply(null);
+  assert.equal(child.style.getPropertyValue("--accountpane-indent"), "7px");
+  root.childList.children.length = 0;
+  f.tree.allRows = f.tree.allRows.filter(row => row !== child);
+  filter.apply("a");
+  assert.deepEqual(Array.from(f.tree.rows), [root]);
+  assert.equal(root.getAttribute("data-accountpane-flattened"), null);
+  filter.dispose();
+});
+
+test("flattened roots are presentation-only and restore owned role after native rebuild", () => {
+  const f = makeTreeFixture();
+  const { root } = serverBranch(f, "a");
+  root.setAttribute("role", "treeitem");
+  root.setAttribute("aria-expanded", "false");
+  const filter = filters.attach(f.options);
+  filter.apply("a");
+  assert.equal(root.getAttribute("role"), "presentation");
+  assert.equal(root.getAttribute("aria-expanded"), "true");
+  root.setAttribute("role", "treeitem"); // Native _initRows after composition.
+  filter.refresh();
+  assert.equal(root.getAttribute("role"), "presentation");
+  filter.apply(null);
+  assert.equal(root.getAttribute("role"), "treeitem");
+  filter.apply("a");
+  root.setAttribute("role", "group"); // Another owner while filtered.
+  filter.dispose();
+  assert.equal(root.getAttribute("role"), "group");
+});
+
+test("presentation-only promotion removes role when it was originally absent", () => {
+  const f = makeTreeFixture();
+  const { root } = serverBranch(f, "a");
+  const filter = filters.attach(f.options);
+  filter.apply("a");
+  assert.equal(root.getAttribute("role"), "presentation");
+  filter.dispose();
+  assert.equal(root.getAttribute("role"), null);
+});
+
+test("flattened root restores expanded accessibility state after native composition", () => {
+  const f = makeTreeFixture();
+  const { root } = serverBranch(f, "a");
+  root.setAttribute("role", "treeitem");
+  root.setAttribute("aria-expanded", "false");
+  const filter = filters.attach(f.options);
+  filter.apply("a");
+  assert.equal(root.getAttribute("aria-expanded"), "true");
+  root.setAttribute("aria-expanded", "true"); // Native composition sees opened root.
+  filter.refresh();
+  filter.apply(null);
+  assert.equal(root.collapsed, true);
+  assert.equal(root.getAttribute("role"), "treeitem");
+  assert.equal(root.getAttribute("aria-expanded"), "false");
+  filter.apply("a");
+  root.setAttribute("aria-expanded", "mixed"); // Later owner is untouched.
+  filter.dispose();
+  assert.equal(root.getAttribute("aria-expanded"), "mixed");
+});
+
+test("flattened root removes owned expanded state when originally absent", () => {
+  const f = makeTreeFixture();
+  const { root } = serverBranch(f, "a");
+  const filter = filters.attach(f.options);
+  filter.apply("a");
+  assert.equal(root.getAttribute("aria-expanded"), "true");
+  filter.dispose();
+  assert.equal(root.getAttribute("aria-expanded"), null);
+});

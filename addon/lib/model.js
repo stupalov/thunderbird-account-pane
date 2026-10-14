@@ -14,6 +14,11 @@ var AccountPaneModel = {
       own.find(folder => folder.root) ?? null;
   },
 
+  firstTarget(accountId, folders) {
+    const own = folders.filter(folder => folder.accountId === accountId && folder.available);
+    return own.find(folder => !folder.root) ?? own.find(folder => folder.root) ?? null;
+  },
+
   initialAccount(accounts, folderAccountId, savedAccountId) {
     const ids = new Set(this.visibleAccounts(accounts).map(account => account.id));
     if (ids.has(folderAccountId)) {
@@ -51,6 +56,6 @@ var AccountPaneModel = {
 
   allowsFiltering(modes) {
     return Array.isArray(modes) && modes.length > 0 &&
-      modes.every(mode => mode === "all" || mode === "favorite");
+      modes.every(mode => ["all", "favorite", "unread", "recent", "smart", "tags"].includes(mode));
   }
 };

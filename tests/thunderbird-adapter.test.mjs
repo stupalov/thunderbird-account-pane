@@ -397,3 +397,85 @@ test("native same-account multiple selection survives tree refresh but removed s
   assert.deepEqual(saved, [], "recovery intent must not fabricate history");
   controller.dispose(); f.adapter.dispose();
 });
+
+test("explicit All-mode navigation selects the exact row even when the same URI is selected in Favorites", () => {
+  const f = fixture(), row = { uri: f.inbox.URI };
+  const calls = [];
+  f.window.document.getElementById("folderTree").updateSelection = target => calls.push(["select", target]);
+  f.window.ensureFolderTreeRowIsVisible = target => calls.push(["ensure", target]);
+  f.window.folderPane.getRowForFolder = (uri, mode) => mode === "all" && uri === f.inbox.URI ? row : null;
+  assert.equal(f.adapter.canDisplayFolder(f.inbox.URI, "all"), true);
+  assert.equal(f.adapter.displayFolder(f.inbox.URI, "all"), true);
+  assert.deepEqual(calls, [["ensure", row], ["select", row]]);
+  assert.deepEqual(f.displays, []);
+});
+
+test("explicit account navigation adds All Folders while retaining every active mode", () => {
+  const f = fixture();
+  f.window.folderPane.activeModes = ["smart", "unread", "tags"];
+  assert.equal(f.adapter.ensureAllFolders(), true);
+  assert.deepEqual(Array.from(f.window.folderPane.activeModes), ["smart", "unread", "tags", "all"]);
+  assert.equal(f.adapter.ensureAllFolders(), true);
+  assert.equal(f.window.folderPane.activeModes.filter(mode => mode === "all").length, 1);
+  f.adapter.dispose();
+  assert.equal(f.adapter.ensureAllFolders(), false);
+});
+
+function contextFixture() {
+  const f = fixture(), calls = [], listeners = new Set();
+  const popup = {
+    addEventListener(type, fn) { assert.equal(type, "popuphidden"); listeners.add(fn); },
+    removeEventListener(type, fn) { listeners.delete(fn); },
+    openPopupAtScreen(...args) { calls.push(["mouse", ...args]); },
+    openPopup(...args) { calls.push(["keyboard", ...args]); },
+    hidePopup() { calls.push(["hide"]); for (const fn of [...listeners]) fn({ target: popup }); }
+  };
+  const native = {
+    _overrideFolder: null,
+    setOverrideFolder(folder) { this._overrideFolder = folder; calls.push(["override", folder]); },
+    clearOverrideFolder() { this._overrideFolder = null; calls.push(["clear"]); }
+  };
+  f.window.folderPaneContextMenu = native;
+  const original = f.window.document.getElementById;
+  f.window.document.getElementById = id => id === "folderPaneContext" ? popup : original(id);
+  return { ...f, calls, popup, native, listeners };
+}
+
+test("account context menu uses the native server override without selecting a folder and cleans up", () => {
+  const f = contextFixture(), anchor = {};
+  assert.equal(f.adapter.showAccountContextMenu("a", { button: 2, screenX: 12, screenY: 34 }, anchor), true);
+  assert.equal(f.native._overrideFolder, f.accounts[1].incomingServer.rootFolder);
+  assert.deepEqual(f.calls.at(-1), ["mouse", 12, 34, true]);
+  assert.deepEqual(f.displays, []);
+  for (const fn of [...f.listeners]) fn({ target: f.popup });
+  assert.equal(f.native._overrideFolder, null);
+  assert.equal(f.listeners.size, 0);
+  assert.equal(f.adapter.showAccountContextMenu("b", { button: 0 }, anchor), true);
+  assert.deepEqual(f.calls.at(-1), ["keyboard", anchor, "after_end", 0, 0, true]);
+  f.adapter.dispose();
+  assert.equal(f.native._overrideFolder, null);
+  assert.equal(f.listeners.size, 0);
+  assert.ok(f.calls.some(call => call[0] === "hide"));
+});
+
+test("invalid account and popup failure do not leave a native context override behind", () => {
+  const f = contextFixture();
+  assert.equal(f.adapter.showAccountContextMenu(null, { button: 2 }, {}), false);
+  assert.equal(f.adapter.showAccountContextMenu("hidden", { button: 2 }, {}), false);
+  assert.deepEqual(f.calls, []);
+  f.popup.openPopupAtScreen = () => { throw Error("popup failed"); };
+  assert.equal(f.adapter.showAccountContextMenu("a", { button: 2, screenX: 1, screenY: 2 }, {}), false);
+  assert.equal(f.native._overrideFolder, null);
+  assert.equal(f.listeners.size, 0);
+});
+
+test("context disposal does not close or clear another owner's native override", () => {
+  const f = contextFixture();
+  f.adapter.showAccountContextMenu("a", { button: 2, screenX: 1, screenY: 2 }, {});
+  const other = {};
+  f.native._overrideFolder = other;
+  f.adapter.dispose();
+  assert.equal(f.native._overrideFolder, other);
+  assert.ok(!f.calls.some(call => call[0] === "hide" || call[0] === "clear"));
+  assert.equal(f.listeners.size, 0);
+});
