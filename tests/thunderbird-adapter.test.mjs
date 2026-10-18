@@ -9,7 +9,7 @@ const Adapter = existsSync(path) ? loadScript(path, "AccountPaneAdapter") : null
 function fixture() {
   const observers = [], prefs = new Map(), folderListeners = new Set(), events = new Map();
   const microtasks = [], displays = [], intListeners = new Set();
-  const flags = { Inbox: 0x1000 };
+  const flags = { Inbox: 0x1000, Junk: 0x400, Virtual: 0x20 };
   const makeAccount = (id, type = "imap", extra = {}) => {
     const server = { key: `server-${id}`, prettyName: `Account ${id}`, type, hidden: false,
       QueryInterface() { return { deferredToAccount: extra.deferredToAccount ?? "" }; }, ...extra };
@@ -75,7 +75,7 @@ function fixture() {
     Ci: { nsMsgFolderFlags: flags, nsIPop3IncomingServer: {}, nsIFolderListener: { intPropertyChanged: 8 } },
     FolderUtils: { compareFolders(a, b) { return a.sortOrder - b.sortOrder || a.localizedName.localeCompare(b.localizedName); } }
   });
-  return { adapter, window, accounts, archive, inbox, nested, prefs, folderListeners, intListeners, Services,
+  return { adapter, window, accounts, archive, inbox, nested, prefs, folderListeners, intListeners, Services, flags,
     events, observers, displays, makeFolder, MailServices,
     flush() { while (microtasks.length) { microtasks.shift()(); } },
     folderEvent() { for (const callback of events.get("folderURIChanged") ?? []) { callback({ detail: "ignore-untrusted-detail" }); } }
@@ -124,6 +124,71 @@ test("unavailable native count is unknown without affecting other metrics or acc
   const counts = f.adapter.messageCounts().accounts;
   assert.deepEqual(structuredClone(counts.a), { unread: null, total: 8 });
   assert.deepEqual(structuredClone(counts.b), { unread: 0, total: null });
+});
+
+test("account recursive counts subtract every physical Junk branch once", () => {
+  const f = fixture();
+  const root = f.accounts[1].incomingServer.rootFolder;
+  root.unread = 40; root.total = 100;
+  const makeJunk = (name, unread, total, flags = f.flags.Junk) => ({
+    URI: `fixture://a/${name}`, server: root.server, flags, localizedName: name,
+    subFolders: [], getNumUnread(deep) { assert.equal(deep, true); return unread; },
+    getTotalMessages(deep) { assert.equal(deep, true); return total; }
+  });
+  // The Junk root's native recursive metrics already include its child.
+  const junk = makeJunk("Localized trash", 6, 13);
+  junk.subFolders.push(makeJunk("nested junk", 2, 3));
+  const otherJunk = makeJunk("Autre dossier", 3, 7);
+  root.subFolders.push(junk, otherJunk);
+  assert.deepEqual(structuredClone(f.adapter.messageCounts().accounts.a), { unread: 31, total: 80 });
+});
+
+test("virtual Junk subtree is skipped and literal Spam without the Junk flag is counted", () => {
+  const f = fixture();
+  const root = f.accounts[1].incomingServer.rootFolder;
+  root.unread = 10; root.total = 20;
+  const make = (name, flags, unread, total) => ({ URI: `fixture://a/${name}`, server: root.server,
+    flags, localizedName: name, subFolders: [],
+    getNumUnread() { return unread; }, getTotalMessages() { return total; } });
+  const virtualJunk = make("virtual", f.flags.Junk | f.flags.Virtual, 4, 8);
+  virtualJunk.subFolders.push(make("physical-under-virtual", f.flags.Junk, 1, 2));
+  root.subFolders.push(virtualJunk, make("Spam", 0, 2, 3));
+  assert.deepEqual(structuredClone(f.adapter.messageCounts().accounts.a), { unread: 10, total: 20 });
+});
+
+test("Junk metrics fail independently and failed enumeration invalidates both metrics", () => {
+  const f = fixture();
+  const root = f.accounts[1].incomingServer.rootFolder;
+  root.unread = 12; root.total = 30;
+  const junk = { URI: "fixture://a/Junk", server: root.server, flags: 0x400,
+    localizedName: "Junk", subFolders: [], getNumUnread() { return -1; },
+    getTotalMessages() { return 5; } };
+  root.subFolders.push(junk);
+  assert.deepEqual(structuredClone(f.adapter.messageCounts().accounts.a), { unread: null, total: 25 });
+  Object.defineProperty(root, "subFolders", { get() { throw Error("enumeration failed"); } });
+  assert.deepEqual(structuredClone(f.adapter.messageCounts().accounts.a), { unread: null, total: null });
+});
+
+test("negative post-subtraction counts become unknown without clamping", () => {
+  const f = fixture(), root = f.accounts[1].incomingServer.rootFolder;
+  root.unread = 2; root.total = 10;
+  root.subFolders.push({ URI: "fixture://a/Junk", server: root.server, flags: f.flags.Junk,
+    localizedName: "Junk", subFolders: [], getNumUnread() { return 3; }, getTotalMessages() { return 4; } });
+  assert.deepEqual(structuredClone(f.adapter.messageCounts().accounts.a), { unread: null, total: 6 });
+});
+
+test("no Junk branches preserve native counts and FolderFlag notifications coalesce", () => {
+  const f = fixture(), root = f.accounts[1].incomingServer.rootFolder;
+  root.unread = 6; root.total = 14;
+  assert.deepEqual(structuredClone(f.adapter.messageCounts().accounts.a), { unread: 6, total: 14 });
+  const seen = [];
+  f.adapter.onMessageCountsChanged(() => seen.push(f.adapter.messageCounts()));
+  for (const listener of f.intListeners) {
+    listener.onFolderIntPropertyChanged(f.inbox, "FolderFlag");
+    listener.onFolderIntPropertyChanged(f.inbox, "FolderFlag");
+  }
+  f.flush();
+  assert.equal(seen.length, 1);
 });
 
 test("native integer count changes coalesce separately and stop after disposal", () => {

@@ -55,6 +55,30 @@ var AccountPaneAdapter = (() => {
       return accountForServer(row?.dataset?.serverKey);
     }
 
+    function junkBranches(root) {
+      const result = [];
+      const visited = new Set();
+      function visit(folder) {
+        const uri = folder.URI;
+        const flags = folder.flags;
+        if (typeof uri !== "string" || !Number.isSafeInteger(flags)) {
+          throw new TypeError("ACCOUNTPANE_FOLDER_METADATA_UNAVAILABLE");
+        }
+        if (visited.has(uri)) return;
+        visited.add(uri);
+        // Native recursive counts already omit virtual searches. Never deduct
+        // their results, or follow them into another account's physical folders.
+        if (flags & Ci.nsMsgFolderFlags.Virtual) return;
+        if (flags & Ci.nsMsgFolderFlags.Junk) {
+          result.push(folder);
+          return; // Its recursive count includes every nested junk branch once.
+        }
+        for (const child of folder.subFolders) visit(child);
+      }
+      visit(root);
+      return result;
+    }
+
     function messageCounts() {
       const accounts = {};
       const visible = new Set(listAccounts().map(account => account.id));
@@ -63,10 +87,20 @@ var AccountPaneAdapter = (() => {
         try {
           const server = account.incomingServer;
           const root = server.rootFolder;
+          const excluded = junkBranches(root);
           const count = method => {
             try {
-              const value = root[method](true);
-              return Number.isSafeInteger(value) && value >= 0 ? value : null;
+              let value = root[method](true);
+              if (!Number.isSafeInteger(value) || value < 0) return null;
+              for (const folder of excluded) {
+                const junk = folder[method](true);
+                if (!Number.isSafeInteger(junk) || junk < 0) return null;
+                value -= junk;
+                // Counts can change between reads; hide an inconsistent metric
+                // rather than publishing a negative or misleading partial sum.
+                if (value < 0) return null;
+              }
+              return value;
             } catch {
               return null;
             }
@@ -368,7 +402,8 @@ var AccountPaneAdapter = (() => {
         };
         const listener = {
           onFolderIntPropertyChanged(folder, property) {
-            if (property === "TotalUnreadMessages" || property === "TotalMessages") notify();
+            if (property === "TotalUnreadMessages" || property === "TotalMessages" ||
+                property === "FolderFlag") notify();
           }
         };
         MailServices.mailSession.AddFolderListener(listener, Ci.nsIFolderListener.intPropertyChanged);
