@@ -1,71 +1,50 @@
-# История изменений
+# Changelog
 
-## 0.1.0 — beta проверена в целевой конфигурации; публично не опубликована
+User-facing changes are listed newest first. These are beta versions; inclusion here does not imply a published release package or validation on every supported platform.
 
-### Реализовано
+## 0.1.8
 
-- Отдельный локализованный список аккаунтов над штатным деревом папок;
-  «Все аккаунты», порядок Thunderbird и доступные «Локальные папки».
-- Обратимое ограничение дерева выбранным аккаунтом в режимах «Все папки» и
-  «Избранные», согласование видимых строк со штатным выбором и раскрытием.
-- Возврат к последней доступной папке аккаунта и запасной выбор «Входящих»,
-  другой доступной папки или корня. В «Избранных» используются доступные строки;
-  отсутствие строк возвращает «Все аккаунты» без смены текущей папки.
-- Согласование внешней навигации и смешанного выбора; неподдерживаемые режимы
-  оставляют «Все аккаунты» до явного выбора аккаунта.
-- Независимый текущий выбор в почтовых вкладках, локальная история папок,
-  последовательное сохранение настроек и обработка исчезнувших аккаунтов/папок.
-- Управление списком мышью и клавиатурой, английские и русские подписи,
-  переменные штатного оформления и Postbird Tangaroa, отдельная прокрутка областей.
-- Experiment API с ожиданием готовности почтовой панели, подключением существующих
-  и новых вкладок/окон, очисткой при отключении и обработкой уведомлений заголовка вкладки.
-- Загрузка шести фиксированных ресурсов из собственного XPI через штатный
-  параметр загрузчика для упакованных `jar:` URL; область помощников и список путей
-  сохранены. Глобальные preferences, защиты и объём доступа не менялись.
-- Диагностика фиксированными кодами без персональных данных.
-- Воспроизводимая XPI-сборка из 13 разрешённых файлов без сторонних зависимостей,
-  с валидацией манифеста/JSON и защитой от символьных ссылок.
+- Follow Thunderbird's native theme colors without requiring Postbird or another custom theme.
+- Redesign and center the extension icon around the separate account-and-folder pane layout.
+- Add an English user guide, a Russian translation, and light/dark illustrative previews.
 
-### Проверки и ограничения
+## 0.1.7
 
-- Исправлен минимум совместимости платформы Gecko: 157.0 вместо 157.0.1,
-  чтобы установщик допускал целевой Thunderbird 157.0.1 с Milestone 157.0.
-- Обновление штатного дерева сохраняет действующий выбор нескольких папок
-  одного аккаунта; при исчезновении выбранной строки запасной выбор остаётся.
-- Фактически открытая при подключении папка запоминается перед уходом в другой
-  аккаунт; пустая/устаревшая общая история не теряет её при первом возврате.
-- 135 автоматических тестов прошли; синтаксис и сборка проверены 2026-10-13.
-- Версия 0.1.0, ID `accountpane@stupalov.github.io`; диапазон манифеста
-  платформы 157.0–157.*. Целевая конфигурация — Thunderbird 157.0.1 на macOS Apple Silicon.
-- Кандидат 16 202 байта с SHA-256 `98126436f06b4de6abc23267c59953d5562ba2140d4507427414b8e042eb8b85`
-  был установлен после принятия запроса полного доступа, но Experiment не запустился
-  и список аккаунтов не появился. Новый кандидат 16 234 байта с SHA-256
-  `ac933c01d821b48b1d7766cc0fbbfba8d186da4219367468d33f9804f3d48598` прошёл
-  основные проверки в тестовом профиле.
-- Попытка удалить прежний экземпляр и сразу установить новый завершилась потерей
-  записи дополнения после закрытия менеджера/перезапуска; причина не подтверждена.
-  Позднее чистая установка, выполненная когда прежняя запись и пакет уже отсутствовали,
-  прошла два цикла отключения/включения и перезапуск; список сохранился. Проверены
-  выбор аккаунтов, локальные/вложенные папки, история, избранные, мультивыбор,
-  перенос одного искусственного черновика и независимые почтовые вкладки.
-- После штатного удаления и чистой повторной установки в тестовом профиле кандидат
-  остался включён, текущая папка Sub сохранилась. На выбранном аккаунте A клавиши
-  Home/End/PageUp/PageDown оставались внутри папок A; B и Local не отображались.
-- Кандидат установлен и включён в рабочем профиле Thunderbird 157.0.1 на macOS
-  Apple Silicon после сохранения закрытой приватной копии метаданных/реестра профиля.
-  Native UI показал один список Accounts над деревом, прежние аккаунт и папку;
-  сообщения не открывали и строки сообщений не выбирали. Conversations 4.3.16 остался
-  активен, хеши пользовательских CSS совпали с исходными. Исходный профиль остался
-  текущим и выбранным по умолчанию.
-- Проверки отдельного окна, полного цикла Unified/All, in-place same-ID update,
-  конфликтов, гонок загрузки и полной клавиатурной навигации остаются непроведёнными.
-  Результат — ограниченная beta-проверка одной целевой конфигурации, не общая
-  сертификация и не публичный релиз.
-- Более ранняя XPI была отклонена установщиком до запроса полного доступа.
-- Experiment требует отдельного согласия на полный доступ к Thunderbird и компьютеру.
-- Группы аккаунтов, их перестановка и изменения списка писем в эту версию не входят.
+- Exclude Spam/Junk folders and their descendants from account unread and total counts, including All Accounts. Individual folder counters remain unchanged.
 
-## Подготовка проекта — 2026-10-06
+## 0.1.6
 
-- Выбрано название AccountPane и создан приватный репозиторий.
-- Согласованы спецификация и последовательный план реализации.
+- Drag accounts to change their saved Thunderbird order.
+- Show shorter folder names in Favorites, Recent, and other compact views when one account is selected; restore account-qualified names in All Accounts.
+
+## 0.1.5
+
+- Right-click an account to open its native Thunderbird context menu.
+- Hide the duplicate account heading in All Folders when viewing one account.
+- Open the first available folder, usually Inbox, when selecting an account.
+- Keep account filtering working with All, Favorites, Unread, Recent, Unified, and Tags views enabled together.
+
+## 0.1.4
+
+- Align account rows, indentation, widths, and expand/collapse arrows with the native folder tree.
+
+## 0.1.3
+
+- Group accounts under a collapsible All Accounts row, with combined counters when collapsed.
+- Match the Accounts heading to native folder headings and add account-type icons.
+
+## 0.1.2
+
+- Add the extension icon and account unread/total message counters.
+
+## 0.1.1
+
+- Fix the account list shrinking and gaining an unnecessary scrollbar in All Accounts.
+
+## 0.1.0
+
+- Introduce a separate account list above Thunderbird's folder tree.
+- Filter folders by account, return to All Accounts, and retain local folder history.
+- Add keyboard navigation and English/Russian interface labels.
+
+See the [development history](docs/development-history.md) and [testing journal](docs/testing.md) for the original implementation notes and validation limits.

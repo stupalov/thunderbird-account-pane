@@ -1,10 +1,37 @@
-# Журнал проверки AccountPane 0.1.0–0.1.7
+# AccountPane testing journal: 0.1.0–0.1.8
 
-**Текущий кандидат 0.1.7: 186/186 автоматических тестов; XPI проверен и
-воспроизводим. Ограниченный нативный smoke подтвердил установку и включение;
-визуально уменьшился счётчик непрочитанных аккаунта при неизменном счётчике Спама.**
-Ограниченные проверки предыдущих версий сохранены ниже как история; это не общая
-сертификация.
+**Current candidate 0.1.8: 186/186 automated tests pass; the XPI is reproducible.
+Light/dark browser fixtures pass. Native installation was stopped before mutation
+because the working Thunderbird window changed during automation; 0.1.7 remains installed.**
+Previous native results below are historical, not acceptance of 0.1.8.
+
+## 0.1.8: public-facing documentation, icon and theme-neutral styles
+
+Checked on 2026-10-19:
+
+- All 186 automated tests pass.
+- Two consecutive builds are byte-identical; 18 unique ZIP entries pass CRC
+  validation and match their allowlisted source files.
+- Artifact: `dist/accountpane-0.1.8.xpi`, 30,886 bytes.
+- SHA-256: `745a9d31057e5149d484c8e22ef40c16222841a329e9a0fd16a9f1e269142420`.
+- The extension stylesheet no longer references Postbird's private CSS variables.
+  It uses native Thunderbird variables and inherited typography.
+- Browser previews render the actual account view and stylesheet with fictional
+  data. Light/dark selection, counts, heading typography, theme-token changes and
+  fallbacks without theme tokens were checked; the panels do not overflow.
+  Mock folder rows and browser rendering do not establish native Thunderbird
+  compatibility for every theme or platform.
+- SVG artwork and PNG sizes 16/32/48/64/128 were inspected. Account and folder
+  glyphs are centered inside their two panel sections.
+- English/Russian user guides, local documentation links and fictional preview
+  data were reviewed. A targeted scan of current tracked files and reachable Git
+  history found no known private profile paths, personal mail addresses or key
+  markers; this is not a comprehensive security audit.
+- A scoped backup of the installed 0.1.7 package and add-on/UI metadata was verified.
+  Native update attempts were rejected as stale while the user changed the working
+  Thunderbird window. No install, restart, theme change or mail selection was made.
+  Read-only verification confirmed that the original 0.1.7 package remains active.
+  Native acceptance of 0.1.8 is pending.
 
 **Исторический статус 0.1.0: beta-приёмка пройдена для описанной целевой
 конфигурации и ограниченного набора сценариев.**

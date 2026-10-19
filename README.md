@@ -1,238 +1,73 @@
+<p align="center"><img src="addon/icons/accountpane-128.png" width="96" height="96" alt="AccountPane icon"></p>
+
 # AccountPane
 
-Расширение Thunderbird с отдельным списком аккаунтов над штатным деревом папок,
-как в Postbox.
+**English** · [Русский](README.ru.md) · [Features](#features) · [Screenshots](#screenshots) · [Installation](#installation) · [Usage](#usage)
 
-**История 0.1.0:** кандидат был установлен и включён как beta в рабочем
-профиле Thunderbird 157.0.1 на macOS Apple Silicon; 135 автоматических тестов
-прошли. В тестовом профиле прошли основные сценарии Accounts, папок, истории,
-перетаскивания и вкладок. В рабочем профиле Accounts появился над штатным деревом;
-выбранные аккаунт и папка сохранились, сообщений не открывали. Исходный профиль
-текущий и выбран по умолчанию, приватная копия данных менеджера создана до установки.
-Остаются непроверенными отдельное окно, полный цикл Unified/All, конфликты и
-гонки загрузки; верхняя клавиатурная навигация проверена не полностью.
-Это ограниченная beta-проверка, не общая сертификация и не публичный релиз.
+A dedicated account list for Thunderbird, inspired by Postbox. Choose an account at the top of the folder pane and see just its folders below. Choose **All Accounts** to return to the full folder tree.
 
-**Текущий кандидат 0.1.7** прошёл 186 автоматических тестов; две сборки дали
-идентичный XPI из 18 записей, CRC и соответствие исходникам проверены. Нативная
-smoke-проверка прошла: дополнение установлено и включено, а счётчик непрочитанных
-аккаунта визуально уменьшился при неизменном счётчике Спама. Из-за поступления новой
-почты точное равенство разности не подтверждено; общий счётчик и свёрнутый итог в
-интерфейсе не проверялись. Предыдущая попытка проверки 0.1.6 завершилась timeout до
-установки; позднее метаданные подтвердили, что 0.1.6 активен в Thunderbird 158,
-но функциональная приёмка не проводилась.
+AccountPane works with your existing accounts and Thunderbird's folder controls. It is designed to follow the active Thunderbird theme; no separate theme, custom CSS, or Postbird installation is required. English and Russian interface labels are included.
 
-## Что реализовано
+**Beta:** the supported version range is Thunderbird **157–158**. Native testing has been limited to macOS; other platforms and every theme combination have not been verified.
 
-- «Все аккаунты» и список доступных почтовых аккаунтов в порядке Thunderbird,
-  включая доступные «Локальные папки»; чат и перенаправленные POP не дублируются.
-- Выбор аккаунта ограничивает штатное дерево его папками. «Все аккаунты» снимает
-  ограничение и сохраняет текущую папку.
-- Счётчики непрочитанных и всех сообщений аккаунта исключают папку «Спам» и её
-  содержимое; «Корзина» остаётся включённой. Настройки для отключения исключения нет.
-  Неизвестный, ошибочный или отрицательный результат остаётся неизвестным; частичная
-  сумма не подставляется, а непрочитанные и общие сообщения обрабатываются отдельно.
-  Строки самих папок сохраняют собственные нативные счётчики. «Все аккаунты» — корневой
-  пункт дерева; реальные аккаунты вложены в его группу.
-  Раскрытие и сворачивание меняют только видимость группы и не выбирают корень.
-  В свёрнутом состоянии на корне показывается сумма непрочитанных по всем
-  отображённым аккаунтам. Счётчик всех сообщений зависит от штатного переключателя.
-  Обновление счётчиков не меняет выбор, навигацию или хранилище.
-- Явный выбор конкретного аккаунта открывает его первую доступную папку в штатном
-  порядке сортировки, обычно «Входящие», и выбирает строку в All Folders.
-  Выбор «Все аккаунты» сохраняет открытую папку. История папок используется
-  при восстановлении после штатного перестроения дерева.
-- Поддерживаются All, Favorites, Unread, Recent, Unified и Tags. Если All Folders
-  выключен, явный выбор аккаунта включает его дополнительно, сохраняя остальные
-  выбранные режимы.
-- В All Folders при выборе одного аккаунта его головная строка скрыта, а папки
-  подняты на верхний уровень. «Все аккаунты» восстанавливает обычное дерево.
-  Пустой корень без папок остаётся доступен.
-- Правый клик по конкретному аккаунту открывает штатное меню его корня без
-  переключения аккаунта или открытой папки.
-- Переключение к папке другого аккаунта и независимый выбор в почтовых вкладках
-  согласуются со штатным деревом; штатное обновление использует локальную историю.
-- В All Accounts можно перетаскивать видимые аккаунты внутри дочернего списка;
-  подсказка показывает позицию до или после строки. Порядок меняется штатным
-  механизмом Thunderbird; корень All Accounts остаётся на месте. Скрытые и отложенные
-  строки и ключи чат-аккаунтов сохраняют позиции; перетаскивание не выбирает аккаунт,
-  папку или письмо и не меняет историю. Отмена, устаревшие строки и drop из чужого
-  списка игнорируются. Изменения нативного порядка обновляют открытые
-  панели.
-- Для одного аккаунта в компактных режимах строка папки показывает только имя папки;
-  полное имя и доступные подписи для экранного чтения остаются штатными. В All Accounts
-  восстанавливается исходное форматирование имён. Переименования папок и аккаунтов
-  обновляют отображение.
-- Дерево доступно с клавиатуры: ArrowLeft/ArrowRight перемещают между уровнями и
-  сворачивают/раскрывают группу; ArrowUp/ArrowDown/Home/End перемещаются по видимым
-  строкам; Enter/Space выбирают аккаунт. Tab передаётся штатной панели. Сворачивание
-  сфокусированного дочернего аккаунта переносит фокус на корень, сохраняя выбранный
-  аккаунт. Контекстные меню и действия с папками остаются штатными.
-- Оригинальная статическая иконка расширения: исходный SVG и пять PNG-размеров
-  для менеджера дополнений Thunderbird.
-- Иконки для «Все аккаунты», почтовых аккаунтов и «Локальных папок». Заголовок
-  копирует семейство, размер, начертание и высоту строки из текущего заголовка
-  штатного дерева; disclosure, поля строк и вложенность используют штатную
-  геометрию. Сохранены CSS-запасные значения. Английские и русские подписи,
-  оформление Thunderbird и [Postbird Tangaroa](https://github.com/stupalov/postbird-tangaroa).
-  Список естественной высоты; штатное дерево прокручивается в оставшейся области.
+## Features
 
-Реализация очистки при отключении проверена автоматическими тестами и штатным
-удалением в тестовом профиле. Границы проверенной клавиатуры, переноса и оформления
-в приложении перечислены в [журнале нативной проверки](docs/testing.md).
+- **One account at a time.** A separate account list keeps the folder pane focused on the account you choose. The duplicate account heading disappears from All Folders.
+- **A collapsible account group.** Collapse All Accounts to save space and show its combined message counters.
+- **Account counters.** See unread and, when enabled in Thunderbird, total message counts. Spam/Junk and its subfolders are excluded from account totals.
+- **Drag to reorder.** Move accounts within the list. The order is saved as Thunderbird's account order.
+- **Familiar folder views.** Use All, Favorites, Unread, Recent, Unified, and Tags. Labels such as “Inbox — Work” become “Inbox” while viewing one account.
+- **Native actions.** Right-click an account for Thunderbird's account context menu. Folder actions remain in the usual folder pane.
+- **Keyboard navigation.** Navigate the account tree with the arrow keys and select with Enter or Space.
 
-## Совместимость
+## Screenshots
 
-Первая целевая конфигурация — **Thunderbird 157.0.1, macOS, Apple Silicon**.
-Установленное приложение этой версии и его внутренние API изучены только чтением.
-Манифест допускает **157.0–158.*** по версии платформы Gecko. У целевого Thunderbird
-157.0.1 значение `Milestone` — 157.0; установщик Experiment сравнивает минимум
-с версией платформы, поэтому прежний минимум 157.0.1 отклонял целевое приложение.
-API установленного Thunderbird 158 проверены чтением, но его runtime ещё не проверен.
-Диапазон манифеста не означает приёмку всех версий и платформ.
+These illustrative previews use fictional accounts and the actual AccountPane view and styles, rendered in a browser. They show light and dark styling; they are not captures of a running Thunderbird window.
 
-Дерево согласуется с All, Favorites, Unread, Recent, Unified и Tags. При явном
-выборе аккаунта All Folders включается при необходимости; остальные выбранные
-режимы сохраняются. Смешанные агрегаты Unified и Tags скрыты для конкретного
-аккаунта. Реальные дочерние папки Unified сохраняются, а All Accounts возвращает
-все штатные строки.
+*Light appearance: focus on one account and its folders.*
 
-При недоступных внутренних точках подключения код оставляет штатную панель
-доступной. Во время ограниченной проверки 0.1.2 внешний вид счётчиков в Postbird
-Tangaroa прошёл проверку; в проверке 0.1.3 заголовок AccountPane визуально
-совпадал с заголовками штатного дерева в текущей конфигурации. Conversations 4.3.16
-оставался включён. Это точечная проверка внешнего вида, а не общая совместимость
-темы или дополнений. Тема и дополнение остаются отдельными проектами.
+![AccountPane preview with fictional accounts in a light appearance](docs/images/accountpane-light.png)
 
-## Сборка и проверки
+*Dark appearance: All Accounts shows the complete account and folder tree.*
 
-Запустите из корня репозитория с Node.js 24 и Python 3:
+![AccountPane preview with fictional accounts in a dark appearance](docs/images/accountpane-dark.png)
 
-```sh
-node --test tests/*.test.mjs
-python3 scripts/build.py
-```
+## Installation
 
-Сторонние зависимости и npm не требуются. Сборщик создаёт
-`dist/accountpane-0.1.7.xpi` из 18 явно перечисленных файлов дополнения и выводит
-SHA-256. В XPI входят пять PNG-иконок; исходный `addon/icons/accountpane.svg`,
-профили, почта, секреты, тесты и документация не включаются. Повторная сборка
-неизменных исходников воспроизводит те же байты.
+Install the supplied `accountpane-*.xpi` file. A public release package is not currently published; if you have only the source code, see the [build instructions](docs/development.md#build-and-test).
 
-Кандидат 0.1.7 исключает содержимое Спама из счётчиков аккаунтов. Полный
-автоматический прогон: 186/186; две сборки воспроизводимы. Нативная проверка
-0.1.7 подтвердила установку и визуальное уменьшение счётчика непрочитанных; точное
-числовое равенство не проверено. Общий счётчик и свёрнутый итог в UI не проверялись.
-Ограниченные результаты прежних версий ниже сохранены
-как история.
+1. Open Thunderbird → **Add-ons and Themes** → **Extensions**.
+2. Open the gear menu and choose **Install Add-on From File…**.
+3. Select the XPI, review the permissions, and confirm installation.
+4. Check that AccountPane is enabled. **Accounts** appears above the folder tree.
 
-| Поле | Значение |
-| --- | --- |
-| Версия | 0.1.7 |
-| ID | `accountpane@stupalov.github.io` |
-| Файл | `dist/accountpane-0.1.7.xpi` |
-| Размер | 44 259 байт |
-| ZIP-записи | 18 |
-| SHA-256 | `b843dcb6f55e613c9baee9d77759ca27e32c42956b3e1477a8f2385a51390fb4` |
-| Нативная проверка | Ограниченный smoke PASS; числовое равенство и общий счётчик в UI не проверялись |
+To update, install the new XPI using the same menu. You do not need to remove the previous version first.
 
-Предыдущий кандидат размером 16 202 байта (SHA-256
-`98126436f06b4de6abc23267c59953d5562ba2140d4507427414b8e042eb8b85`, коммит
-`d7b0140`) был установлен, и запрос полного доступа был принят, но Experiment
-завершился ошибкой запуска; верхний список аккаунтов не появился. Кандидат 0.1.2 установлен и включён ранее; его результаты и границы приведены
-в истории журнала ниже.
+**Permissions:** AccountPane uses Thunderbird's Experiment API to integrate with the folder pane, so Thunderbird requests full, unrestricted access. The current implementation reads account and folder metadata and stores local selection and folder-history settings. It does not read message bodies or passwords and makes no external network requests or telemetry submissions. Experiment access itself is broader than this behavior.
 
-Результаты beta-приёмки 0.1.0 и нативной проверки обновления до 0.1.1, а также
-границы оставшихся сценариев приведены в
-[журнале нативной проверки](docs/testing.md#история-нативной-проверки).
+## Usage
 
-На macOS контрольную сумму файла можно сверить командой:
+- **Select an account** to show its folders and open its first available folder in Thunderbird's order, usually Inbox. All Folders is enabled if necessary; your other folder views stay enabled.
+- **Select All Accounts** to show the full tree while keeping the current folder open.
+- **Click the arrow beside All Accounts** to collapse or expand the account list. This does not change the selected account or open folder. Combined counters appear when the group is collapsed.
+- **Drag an account above or below another** to change its order. This changes Thunderbird's account order across mail tabs, not just this panel.
+- **Right-click an account** to open its native context menu without switching the open folder.
+- **Use the keyboard:** Up/Down and Home/End move focus; Left/Right collapse, expand, or move between tree levels; Enter/Space select; Tab moves to the next control.
 
-```sh
-shasum -a 256 dist/accountpane-0.1.7.xpi
-```
+For a selected account, combined Unified/Tags rows that span accounts are hidden. Select All Accounts to restore the complete view.
 
-Репозиторий приватный; доступ к исходникам требуется отдельно. Публичного релиза
-или опубликованной установочной сборки сейчас нет.
+### Message counters
 
-## Данные и полный доступ
+Unread and total counts sum the account's folders, excluding folders Thunderbird identifies as **Junk/Spam** and all their subfolders. The folder's designation matters: a normal folder simply named “Spam” is not automatically excluded. Trash remains included. All Accounts sums the visible accounts, and total counts follow Thunderbird's folder-pane total-count setting.
 
-Для встраивания в панель используется Experiment API. Thunderbird запрашивает
-**полный, неограниченный доступ к Thunderbird и компьютеру**, даже при единственном
-разрешении `storage` в манифесте. Это свойство
-[модели разрешений Experiments](https://developer.thunderbird.net/add-ons/mailextensions/experiments).
-Перед установкой этой сборки требуется отдельное явное согласие на такой доступ.
+This exclusion is built into AccountPane and has no separate switch. The counters on the individual folders, including Spam, remain Thunderbird's own counters.
 
-Текущий код читает метаданные аккаунтов и папок, добавляет обратимые элементы и
-обработчики панели и сохраняет выбор аккаунта и URI последних папок в
-`storage.local` внутри профиля. Содержимое писем и пароли он не читает; внешних
-сетевых запросов и телеметрии в коде нет. Это описание реализации, а не техническое
-ограничение привилегий Experiment и не гарантия изоляции.
+### Disable or remove
 
-Личные профили, адреса, URI, письма и пароли не должны попадать в Git,
-диагностические публикации или артефакты сборки.
+Open **Add-ons and Themes → Extensions**, then disable AccountPane or choose **Remove** from its menu. The standard folder tree is restored. Account order changes made by dragging remain saved in Thunderbird.
 
-## Установка после согласия
+## More information
 
-Сначала выполняется проверка в отдельном тестовом профиле Thunderbird 157.0.1.
-Рабочий профиль на этом этапе остаётся закрытым. Используйте искусственные
-аккаунты, папки и тестовые письма без реальных серверов и паролей; не копируйте
-личный профиль в репозиторий и не открывайте его более старой версией Thunderbird.
+[Changelog](CHANGELOG.md) · [Development](docs/development.md) · [License](LICENSE)
 
-После проверки SHA-256 конкретного XPI и получения согласия на полный доступ
-установите кандидат в согласованном тестовом профиле:
-
-1. В выбранном тестовом профиле откройте менеджер дополнений → «Расширения».
-2. В меню с шестерёнкой выберите «Установить дополнение из файла…»
-   (*Install Add-on From File…*) и укажите `accountpane-0.1.7.xpi`.
-3. Проверьте название, версию и запрос полного доступа перед подтверждением.
-   Если Thunderbird отказывает в установке, сохраните причину и остановитесь:
-   не отключайте проверку подписей, защитные настройки или Gatekeeper.
-4. Убедитесь, что AccountPane 0.1.7 включён, а список аккаунтов появился над
-   деревом папок. Если списка нет или появилась ошибка запуска, остановитесь и
-   запишите только фиксированный код ошибки. Далее выполните сценарии из
-   [docs/testing.md](docs/testing.md).
-
-Чтобы обновить уже установленное дополнение с тем же ID, используйте штатный
-пункт «Установить дополнение из файла…» с новым XPI. Если сначала удаляете старую
-версию, закройте менеджер дополнений и дождитесь завершения удаления до установки
-новой. В тестировании немедленная установка после удаления привела к отсутствующей
-записи дополнения при последующей проверке; причина не установлена. Повторение
-этого сценария не проверено в Thunderbird. Обновление 0.1.0 до 0.1.1 на месте
-прошло; подробности приведены в журнале нативной проверки.
-
-Путь установки соответствует [инструкции Thunderbird](https://support.mozilla.org/en-US/kb/installing-addon-thunderbird).
-Статус предыдущих кандидатов и текущей нативной проверки приведён в
-[истории проверки](docs/testing.md#история-нативной-проверки).
-
-В рабочий профиль переходите только после успешной тестовой проверки и отдельного
-согласования. Перед этим зафиксируйте режимы/вид панели и состояние дополнений,
-закройте Thunderbird и сохраните локальную резервную копию затрагиваемых
-UI-настроек и данных AccountPane вне Git. Состав файлов и способ восстановления
-нужно проверить для выбранного профиля до установки; почта и пароли в эту копию
-не входят. В этой beta-установке AccountPane включён; выбранные аккаунт и папка,
-состояние дополнения Conversations и пользовательские CSS остались прежними.
-
-## Отключение и откат
-
-В менеджере дополнений → «Расширения» отключите AccountPane переключателем.
-Для удаления выберите «Удалить» в меню дополнения. Код предназначен для удаления
-своих элементов, стилей и обработчиков и восстановления полного штатного дерева
-с текущей папкой; автоматические тесты и штатное удаление в тестовом профиле
-подтвердили восстановление дерева. Редактирование пользовательского CSS для
-отката не предусмотрено.
-
-Если обычная панель не восстановилась, оставьте AccountPane отключённым и
-перезапустите Thunderbird. До выяснения причины не включайте его в рабочем
-профиле. Подготовленную резервную копию UI/данных дополнения восстанавливайте
-только при закрытом Thunderbird по заранее проверенному способу; не заменяйте
-почтовые хранилища и парольные файлы. Отключение служит первым обратимым шагом.
-
-## Документация и лицензия
-
-- [Статус и сценарии проверки](docs/testing.md).
-- [История изменений](CHANGELOG.md).
-- [Спецификация первой версии](docs/superpowers/specs/2026-10-06-account-pane-design.md).
-- [План реализации](docs/superpowers/plans/2026-10-06-account-pane.md).
-
-MIT. Проект не является официальным продуктом Postbox или Thunderbird.
+AccountPane is an independent project, not an official Thunderbird or Postbox product. Licensed under MIT.
