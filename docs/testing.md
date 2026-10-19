@@ -3,7 +3,8 @@
 **Current candidate 0.1.9: 186/186 automated tests pass; the XPI is reproducible.
 The manifest permits Gecko 157.0 and later with an explicit wildcard maximum.
 This is an installation policy, not runtime verification of future versions.
-Version 0.1.9 has not been installed in the working profile.**
+Version 0.1.9 is installed and active in the working profile on Thunderbird 158.0
+(macOS); see the native note below for what was and was not observed.**
 
 ## 0.1.9: forward-compatible manifest policy
 
@@ -20,9 +21,37 @@ Checked on 2026-10-19:
   and match the source bytes.
 - Artifact: `dist/accountpane-0.1.9.xpi`, 30,884 bytes.
 - SHA-256: `dd93c18756d8211226ba54c4f78c6c0cf3b0113873fb8749c3c149349315032a`.
-- No native install or working-profile modification was performed for this version.
-  Existing runtime evidence remains limited to earlier builds on Thunderbird
-  157–158. Add-on-directory review policy is separate from local XPI compatibility.
+- Add-on-directory review policy is separate from local XPI compatibility.
+
+Native install on 2026-10-19 (Thunderbird 158.0, macOS, working profile):
+
+- Before the update, the profile held 0.1.8 (byte-identical to
+  `dist/accountpane-0.1.8.xpi`), installed earlier the same day and active. The
+  0.1.8 account list was observed rendering above the folder tree during the
+  day, so the theme-neutral stylesheet and the new icon had already run natively
+  on 0.1.8; 0.1.9 differs from 0.1.8 only in the manifest version and maximum.
+- A scoped backup of the 0.1.8 package and add-on/session/UI metadata was taken
+  first (`AccountPane-backups/20261019-before-019-update`, 8 files with an
+  SHA-256 inventory, no mail or credentials).
+- The install used the standard Add-ons Manager "Install Add-on From File…"
+  flow over the same extension ID, without removing the previous version. The
+  automation reached the file dialog and then stopped because the dialog and
+  the Add-ons Manager tab disappeared while the window was being used; the
+  remaining file-dialog and confirmation steps were completed outside the
+  automation. The confirmation prompt text was therefore not captured.
+- Result verified on disk: the profile XPI is byte-identical to
+  `dist/accountpane-0.1.9.xpi` (SHA-256 above); `extensions.json` lists
+  version 0.1.9, active, not disabled, target range 157.0–`*`, and the
+  permission set unchanged (`storage` only). No restart was needed.
+- Read-only UI check after the update: the account list is rendered above the
+  folder tree with the same accounts and counters as before, the previously
+  selected folder and message stay selected, and the mail tab remains active.
+  Accounts, folders and messages were not clicked.
+- Not observed natively for 0.1.9: the version string in the Add-ons Manager
+  UI (confirmed from `extensions.json` only), the icon as rendered in the
+  manager row, account switching, drag ordering and restart persistence.
+  Runtime evidence remains limited to Thunderbird 157–158 on macOS; future
+  versions are permitted by the manifest, not tested.
 
 ## 0.1.8: public-facing documentation, icon and theme-neutral styles
 
@@ -49,8 +78,10 @@ Checked on 2026-10-19:
 - A scoped backup of the installed 0.1.7 package and add-on/UI metadata was verified.
   Native update attempts were rejected as stale while the user changed the working
   Thunderbird window. No install, restart, theme change or mail selection was made.
-  Read-only verification confirmed that the original 0.1.7 package remains active.
-  Native acceptance of 0.1.8 is pending.
+  Read-only verification confirmed that the original 0.1.7 package remained active
+  at that time. Later on 2026-10-19 the 0.1.8 package was installed over 0.1.7
+  outside the automation and ran actively until it was replaced by 0.1.9 the
+  same evening (see the 0.1.9 native note).
 
 **Исторический статус 0.1.0: beta-приёмка пройдена для описанной целевой
 конфигурации и ограниченного набора сценариев.**
