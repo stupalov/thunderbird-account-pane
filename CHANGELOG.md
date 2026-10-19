@@ -2,6 +2,10 @@
 
 User-facing changes are listed newest first. These are beta versions; inclusion here does not imply a published release package or validation on every supported platform.
 
+## 0.1.9
+
+- Remove the upper Thunderbird version cap while retaining the minimum of 157.0, so browser upgrades do not require a manifest-only AccountPane update. Changes to Thunderbird internals may still require code updates.
+
 ## 0.1.8
 
 - Follow Thunderbird's native theme colors without requiring Postbird or another custom theme.

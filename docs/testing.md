@@ -1,9 +1,28 @@
-# AccountPane testing journal: 0.1.0–0.1.8
+# AccountPane testing journal: 0.1.0–0.1.9
 
-**Current candidate 0.1.8: 186/186 automated tests pass; the XPI is reproducible.
-Light/dark browser fixtures pass. Native installation was stopped before mutation
-because the working Thunderbird window changed during automation; 0.1.7 remains installed.**
-Previous native results below are historical, not acceptance of 0.1.8.
+**Current candidate 0.1.9: 186/186 automated tests pass; the XPI is reproducible.
+The manifest permits Gecko 157.0 and later with an explicit wildcard maximum.
+This is an installation policy, not runtime verification of future versions.
+Version 0.1.9 has not been installed in the working profile.**
+
+## 0.1.9: forward-compatible manifest policy
+
+Checked on 2026-10-19:
+
+- `strict_min_version` remains `157.0`; `strict_max_version` is now `*`.
+- The installed Thunderbird 158 schema accepts a string maximum; its
+  XPIDatabase compatibility path uses the native version comparator and an
+  unbounded wildcard default. No global compatibility preferences were changed.
+- All 186 automated tests pass, including packaged bounds and rejection of an
+  accidentally restored finite maximum or the incompatible platform minimum.
+  These tests do not simulate or certify future Thunderbird internal APIs.
+- Two builds are byte-identical. All 18 unique archive entries pass CRC checks
+  and match the source bytes.
+- Artifact: `dist/accountpane-0.1.9.xpi`, 30,884 bytes.
+- SHA-256: `dd93c18756d8211226ba54c4f78c6c0cf3b0113873fb8749c3c149349315032a`.
+- No native install or working-profile modification was performed for this version.
+  Existing runtime evidence remains limited to earlier builds on Thunderbird
+  157–158. Add-on-directory review policy is separate from local XPI compatibility.
 
 ## 0.1.8: public-facing documentation, icon and theme-neutral styles
 

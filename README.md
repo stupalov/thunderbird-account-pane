@@ -8,7 +8,7 @@ A dedicated account list for Thunderbird, inspired by Postbox. Choose an account
 
 AccountPane works with your existing accounts and Thunderbird's folder controls. It is designed to follow the active Thunderbird theme; no separate theme, custom CSS, or Postbird installation is required. English and Russian interface labels are included.
 
-**Beta:** the supported version range is Thunderbird **157–158**. Native testing has been limited to macOS; other platforms and every theme combination have not been verified.
+**Beta:** requires Thunderbird **157 or newer**, with no upper version cap. Native testing so far covers versions 157–158 on macOS. Future Thunderbird changes to internal APIs may still require an AccountPane update.
 
 ## Features
 
