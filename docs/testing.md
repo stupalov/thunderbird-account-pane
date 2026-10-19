@@ -53,6 +53,18 @@ Native install on 2026-10-19 (Thunderbird 158.0, macOS, working profile):
   Runtime evidence remains limited to Thunderbird 157–158 on macOS; future
   versions are permitted by the manifest, not tested.
 
+Native UI check later on 2026-10-19 (same profile, read-only, via accessibility
+tooling): the Add-ons Manager details page for AccountPane shows Version 0.1.9
+and Last Updated October 19, 2026; the extension is enabled, and the list row
+shows the new account-over-folders icon. Selecting one account in the AccountPane
+list filtered the folder tree to that account and opened its Inbox; selecting
+All Accounts restored the full multi-account tree and kept the current folder
+selected; selecting the original account again returned to its Inbox and the
+message pane showed the same message as before. No messages were clicked and no
+read states were changed. The user had changed the selected account between the
+first and second look, so the baseline for restoring was the state seen after
+that change. Drag ordering and restart persistence were still not observed.
+
 ## 0.1.8: public-facing documentation, icon and theme-neutral styles
 
 Checked on 2026-10-19:
