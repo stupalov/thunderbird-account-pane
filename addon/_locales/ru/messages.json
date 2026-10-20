@@ -1,0 +1,10 @@
+{
+  "extensionName": { "message": "AccountPane" },
+  "extensionDescription": { "message": "Отдельный список аккаунтов над деревом папок Thunderbird." },
+  "accounts": { "message": "Аккаунты" },
+  "allAccounts": { "message": "Все аккаунты" },
+  "expandAccounts": { "message": "Развернуть аккаунты" },
+  "collapseAccounts": { "message": "Свернуть аккаунты" },
+  "unreadCount": { "message": "Непрочитанных сообщений: {count}" },
+  "totalCount": { "message": "Всего сообщений: {count}" }
+}

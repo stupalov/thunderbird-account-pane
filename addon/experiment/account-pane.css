@@ -1,0 +1,210 @@
+/* Own section only: preserve the native pane, splitter state, and tree scrolling. */
+#accountpane-accounts {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  color: var(--sidebar-color, inherit);
+  background: var(--sidebar-background, transparent);
+  font-family: inherit;
+  font-size: inherit;
+  border-block-end: 1px solid var(--sidebar-border, transparent);
+}
+
+#accountpane-heading {
+  flex: 0 0 auto;
+  margin: 0;
+  padding-block: var(--folder-mode-name-padding, 6px);
+  padding-inline: 12px;
+  font-family: inherit;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: inherit;
+}
+
+#accountpane-list {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0 0 4px;
+  list-style: none;
+  overflow: hidden;
+  scrollbar-gutter: stable;
+}
+
+#accountpane-list [role="group"] {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#accountpane-list [role="group"][hidden] {
+  display: none;
+}
+
+#accountpane-list .accountpane-row {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-block-size: var(--list-item-min-height, 26px);
+  margin-inline: 3px;
+  padding-block: 0;
+  padding-inline: 0;
+  border: 1px solid var(--list-container-border, transparent);
+  border-radius: var(--listbox-border-radius, 3px);
+  cursor: default;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#accountpane-list .accountpane-root > .accountpane-row {
+  padding-block: 5px;
+}
+
+#accountpane-list .accountpane-child > .accountpane-row {
+  padding-inline-start: 16px;
+}
+
+#accountpane-list .accountpane-child > .accountpane-row::before {
+  content: "";
+  flex: 0 0 var(--list-item-buttons-size, 22px);
+  inline-size: var(--list-item-buttons-size, 22px);
+  block-size: var(--list-item-buttons-size, 22px);
+}
+
+#accountpane-list .accountpane-disclosure {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 var(--list-item-buttons-size, 22px);
+  inline-size: var(--list-item-buttons-size, 22px);
+  block-size: var(--list-item-buttons-size, 22px);
+  min-width: 0;
+  min-inline-size: 0;
+  max-width: var(--list-item-buttons-size, 22px);
+  max-inline-size: var(--list-item-buttons-size, 22px);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  appearance: none;
+}
+
+#accountpane-list .accountpane-disclosure-icon {
+  display: block;
+  width: 12px;
+  height: 12px;
+  content: var(--icon-nav-down-sm);
+  -moz-context-properties: fill, stroke;
+  fill: currentColor;
+  stroke: currentColor;
+}
+
+#accountpane-list .accountpane-root[aria-expanded="false"] > .accountpane-row .accountpane-disclosure-icon {
+  transform: rotate(-90deg);
+}
+
+#accountpane-list .accountpane-root[aria-expanded="false"] > .accountpane-row .accountpane-disclosure-icon:dir(rtl) {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  #accountpane-list .accountpane-disclosure-icon {
+    transition: transform var(--transition-duration, 200ms) var(--transition-timing, ease);
+  }
+}
+
+#accountpane-list .accountpane-icon {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+  color: var(--folder-color-folder, currentColor);
+}
+
+#accountpane-list .accountpane-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-inline: 7px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#accountpane-list .accountpane-badges {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+#accountpane-list .accountpane-badges > span:not(:empty) {
+  box-sizing: border-box;
+  min-width: 16px;
+  padding: 1px 4px;
+  border-radius: 1000px;
+  margin-inline-end: 6px;
+  text-align: center;
+  font-size: 0.85em;
+}
+
+#accountpane-list .accountpane-badges > span:empty {
+  display: none;
+}
+
+#accountpane-list .accountpane-unread-count {
+  background: var(--folderpane-unread-count-background, GrayText);
+  color: var(--folderpane-unread-count-text, Canvas);
+}
+
+#accountpane-list .accountpane-total-count {
+  background: var(--folderpane-total-count-background, ButtonFace);
+  color: var(--folderpane-total-count-text, ButtonText);
+}
+
+#accountpane-list [role="treeitem"] > .accountpane-row:hover {
+  border-color: var(--list-container-border-hover, transparent);
+  background: var(--treeitem-background-hover, transparent);
+}
+
+#accountpane-list [role="treeitem"][aria-selected="true"] > .accountpane-row {
+  border-color: var(--list-container-border-selected-focused, transparent);
+  background: var(--treeitem-background-active, Highlight);
+  color: var(--treeitem-text-active, HighlightText);
+}
+
+#accountpane-list [role="treeitem"]:focus-visible > .accountpane-row {
+  outline: 2px solid var(--focus-outline-color, currentColor);
+  outline-offset: -2px;
+}
+
+/* Paired with the tree filter's owned marker; native row hiding is reversible. */
+#folderTree [data-accountpane-hidden="true"] {
+  display: none !important;
+}
+
+/* Keep the native tree hierarchy and keyboard implementation while promoting
+   folders past account/aggregate roots in the selected account view. */
+#folderTree li[data-accountpane-flattened="true"] > .container {
+  display: none !important;
+}
+#folderTree li[style*="--accountpane-indent"] > .container {
+  --indent: var(--accountpane-indent);
+}
+#folderTree li[data-accountpane-flattened="true"] > ul {
+  /* Native collapse also leaves height:0 and may finish an animation later. */
+  display: block !important;
+  height: auto !important;
+}
+
+/* Insertion cues affect only owned account rows, never native folder dragging. */
+#accountpane-list .accountpane-row[data-accountpane-drop="before"] {
+  box-shadow: inset 0 2px var(--primary, AccentColor);
+}
+
+#accountpane-list .accountpane-row[data-accountpane-drop="after"] {
+  box-shadow: inset 0 -2px var(--primary, AccentColor);
+}

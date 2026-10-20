@@ -1,0 +1,33 @@
+{
+  "manifest_version": 2,
+  "name": "__MSG_extensionName__",
+  "version": "0.1.9",
+  "icons": {
+    "16": "icons/accountpane-16.png",
+    "32": "icons/accountpane-32.png",
+    "48": "icons/accountpane-48.png",
+    "64": "icons/accountpane-64.png",
+    "128": "icons/accountpane-128.png"
+  },
+  "default_locale": "en",
+  "description": "__MSG_extensionDescription__",
+  "permissions": ["storage"],
+  "background": { "scripts": ["background.js"] },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "accountpane@stupalov.github.io",
+      "strict_min_version": "157.0",
+      "strict_max_version": "*"
+    }
+  },
+  "experiment_apis": {
+    "accountPane": {
+      "schema": "experiment/schema.json",
+      "parent": {
+        "scopes": ["addon_parent"],
+        "paths": [["accountPane"]],
+        "script": "experiment/implementation.js"
+      }
+    }
+  }
+}
