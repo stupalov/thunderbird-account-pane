@@ -50,8 +50,8 @@ Native install on 2026-10-19 (Thunderbird 158.0, macOS, working profile):
 - Not observed natively for 0.1.9: the version string in the Add-ons Manager
   UI (confirmed from `extensions.json` only), the icon as rendered in the
   manager row, account switching, drag ordering and restart persistence.
-  Runtime evidence remains limited to Thunderbird 157–158 on macOS; future
-  versions are permitted by the manifest, not tested.
+  Runtime evidence covers Thunderbird 157–158 on macOS and 158 on Windows 11
+  (see below); future versions are permitted by the manifest, not tested.
 
 Native UI check later on 2026-10-19 (same profile, read-only, via accessibility
 tooling): the Add-ons Manager details page for AccountPane shows Version 0.1.9
@@ -64,6 +64,41 @@ message pane showed the same message as before. No messages were clicked and no
 read states were changed. The user had changed the selected account between the
 first and second look, so the baseline for restoring was the state seen after
 that change. Drag ordering and restart persistence were still not observed.
+
+## 0.1.9 on Windows 11 (Thunderbird 158.0, x64 build under ARM emulation)
+
+Checked on 2026-10-20 in a Parallels Desktop virtual machine with a disposable
+profile and fictional offline POP3 accounts (no network, no real mail). The
+Thunderbird 158.0 Windows x64 installer was downloaded from Mozilla's CDN and
+verified against the published SHA-256 before a silent install. The XPI was
+sideloaded into the profile's `extensions` folder with
+`extensions.autoDisableScopes = 0`; the UI was driven by keyboard only
+(scancodes through `prlctl send-key-event`) with full-screen captures through
+`prlctl capture`, so mouse-only behaviour such as drag ordering was not
+covered.
+
+- First start: the "Accounts" list appears above the folder tree with All
+  Accounts, the three fictional accounts and Local Folders; the folder tree is
+  filtered to the first account. The only first-run dialog was Thunderbird's
+  default-client integration prompt (dismissed).
+- `extensions.json` lists AccountPane 0.1.9, active, not disabled; the
+  Add-ons Manager shows it enabled with the icon (the version string is on the
+  detail page, which was not opened).
+- Keyboard: Tab reaches the account tree, Up/Down move focus, Enter selects.
+  Selecting an account filters the folder tree to that account and opens its
+  Inbox; selecting All Accounts restores the full tree and keeps the open
+  folder. Unread counters update live as messages are read.
+- Collapsing All Accounts with Left shows the combined unread counter;
+  Right expands it again. Shift+F10 on an account opens Thunderbird's native
+  account context menu.
+- "Next unread" (N) moving into another account's Inbox switched the
+  AccountPane selection to that account.
+- The Junk folder of the fictional account was flagged by Thunderbird (Spam
+  icon) and listed under the account. Its exclusion from the counters was not
+  measured here because the folder database had not been built yet.
+- Not covered: drag ordering, restart persistence of the selected account,
+  installing through "Install Add-on From File…", Thunderbird's Light theme
+  (the VM runs Windows in dark mode with "System theme — auto").
 
 ## 0.1.8: public-facing documentation, icon and theme-neutral styles
 
