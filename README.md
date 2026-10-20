@@ -6,7 +6,7 @@
 
 A dedicated account list for Thunderbird, inspired by Postbox. Choose an account at the top of the folder pane and see just its folders below. Choose **All Accounts** to return to the full folder tree.
 
-AccountPane works with your existing accounts and Thunderbird's folder controls. It is designed to follow the active Thunderbird theme; no separate theme, custom CSS, or Postbird installation is required. English and Russian interface labels are included.
+AccountPane began as an attempt to bring back the way of working with mail that Postbox offered, after Postbox stopped being updated and was abandoned. It adds the Postbox-style account list to Thunderbird and works with your existing accounts and Thunderbird's folder controls. For a matching Postbox-like appearance, see the companion theme [Thunderbird Tangaroa](https://github.com/stupalov/thunderbird-tangaroa).
 
 **Beta:** requires Thunderbird **157 or newer**, with no upper version cap. Native testing so far covers versions 157–158 on macOS. Future Thunderbird changes to internal APIs may still require an AccountPane update.
 
@@ -34,7 +34,7 @@ These illustrative previews use fictional accounts and the actual AccountPane vi
 
 ## Installation
 
-Install the supplied `accountpane-*.xpi` file. A public release package is not currently published; if you have only the source code, see the [build instructions](docs/development.md#build-and-test).
+Download the latest `accountpane-*.xpi` from the [Releases](https://github.com/stupalov/thunderbird-account-pane/releases) page. If you have only the source code, see the [build instructions](docs/development.md#build-and-test).
 
 1. Open Thunderbird → **Add-ons and Themes** → **Extensions**.
 2. Open the gear menu and choose **Install Add-on From File…**.
