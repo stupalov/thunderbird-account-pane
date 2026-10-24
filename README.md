@@ -44,7 +44,11 @@ Download the latest `accountpane-*.xpi` from the [Releases](https://github.com/s
 
 To update, install the new XPI using the same menu. You do not need to remove the previous version first.
 
-**Permissions:** AccountPane uses Thunderbird's Experiment API to integrate with the folder pane, so Thunderbird requests full, unrestricted access. The current implementation reads account and folder metadata and stores local selection and folder-history settings. It does not read message bodies or passwords and makes no external network requests or telemetry submissions. Experiment access itself is broader than this behavior.
+### Why the install prompt asks for full access
+
+When you install AccountPane, Thunderbird shows "This add-on will have full, unrestricted access to Thunderbird, and your computer." This is not a permission AccountPane chooses; it is the only prompt Thunderbird has for any add-on that uses the Experiment API. AccountPane needs that API because Thunderbird has no WebExtension API for changing the folder pane: the account list can only be added by running code inside Thunderbird's own window, and Thunderbird treats all such code as fully trusted. Every folder-pane add-on built on Experiments shows the same text, whatever it actually does.
+
+What AccountPane actually does with that access: it reads account and folder metadata (names, flags, message counts, the new-mail marker), moves accounts when you drag them, and stores the selected account and folder history in the add-on's local storage. It does not read message bodies or passwords, makes no network requests and sends no telemetry. The source is open and the XPI build is reproducible, so the published file can be compared with the repository.
 
 ## Usage
 
