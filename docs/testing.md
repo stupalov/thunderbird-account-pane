@@ -1,6 +1,6 @@
 # AccountPane testing journal: 0.1.0–0.1.10
 **Current candidate 0.1.10: 194/194 automated tests pass; the XPI is reproducible.
-Native check of the new-mail star is pending (user, macOS). The 0.1.9 notes
+Native check of the new-mail star: done by the user on macOS (see 0.1.10 below). The 0.1.9 notes
 below remain the last natively verified install (Thunderbird 158.0, macOS).**
 
 ## 0.1.10: new-mail star
@@ -11,7 +11,11 @@ below remain the last natively verified install (Thunderbird 158.0, macOS).**
 - All automated tests pass (194/194).
 - Two builds are byte-identical, SHA-256 `1e29d848edfdd65399cc67b1d3bc1bf1928709b345478754c033a4cbe381c8aa` (after the listener and star-placement fixes).
   (`dist/accountpane-0.1.10.xpi`).
-- Native check: pending (user, macOS).
+- Native check (user, macOS 27, Thunderbird 158.0, working profile, 2026-10-24): installed
+  over 0.1.9; the star appears on the account cloud at the top-left corner like native
+  folders (a first build placed it top-right; fixed by inserting the star element before
+  the icon). The install prompt shows the usual Experiment "full, unrestricted access"
+  text, as documented in the README.
 
 
 ## 0.1.9: forward-compatible manifest policy
