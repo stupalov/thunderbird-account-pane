@@ -2,9 +2,13 @@
 
 User-facing changes are listed newest first. These are beta versions; inclusion here does not imply a published release package or validation on every supported platform.
 
+## 0.1.12
+
+- Set `strict_max_version` to `158.*`: the add-on catalogue requires an explicit maximum for Experiment add-ons. Each new Thunderbird release will need an AccountPane update (or a compatibility edit in the catalogue).
+
 ## 0.1.11
 
-- Remove the explicit `strict_max_version` from the manifest: the add-on catalogue's validator rejects `*`, and an omitted key means the same (no upper version cap).
+- Remove the explicit `strict_max_version` from the manifest (the catalogue validator rejects `*`); superseded by 0.1.12.
 
 ## 0.1.10
 

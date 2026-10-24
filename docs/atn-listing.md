@@ -8,7 +8,7 @@ Copy-and-paste material for the addons.thunderbird.net developer hub. Keep the X
 |---|---|
 | Name | AccountPane |
 | Add-on ID (from the manifest, fixed) | `accountpane@stupalov.github.io` |
-| Version | the manifest version of the uploaded XPI (0.1.11) |
+| Version | the manifest version of the uploaded XPI (0.1.12) |
 | Category | Folders and Filters (alternative: User Interface) |
 | Tags | accounts, folder pane, folders, postbox |
 | License | MIT License |
@@ -67,9 +67,9 @@ AccountPane добавляет отдельный список аккаунто�
 
 - Experiment API `accountPane` (`addon/experiment/`): injects an account list element into the folder pane of `about:3pane`, reads accounts and folders through `MailServices.accounts`, folder counts through `nsIMsgFolder.getNumUnread/getTotalMessages` and `hasNewMessages`, reorders accounts with `MailServices.accounts.reorderAccounts`, opens folders through the folder pane's own selection, and listens to folder notifications (`nsIFolderListener`, `MailServices.mfn`). No network access, no message content, no password access, no telemetry.
 - The background script only stores settings (`storage` permission) and relays them to the experiment.
-- Source: https://github.com/stupalov/thunderbird-account-pane (tag v0.1.11). No minification or build step beyond zipping the `addon/` allowlist (`scripts/build.py`); the XPI SHA-256 is printed in the GitHub release notes.
+- Source: https://github.com/stupalov/thunderbird-account-pane (tag v0.1.12). No minification or build step beyond zipping the `addon/` allowlist (`scripts/build.py`); the XPI SHA-256 is printed in the GitHub release notes.
 - Tests: `node --test tests/*.test.mjs` (194 tests).
-- No `strict_max_version` on purpose (the validator rejects `*`): the add-on tracks Thunderbird releases; if ATN policy requires an explicit maximum for Experiments, a manifest-only update can set it.
+- `strict_max_version` is `158.*`, the version range the add-on was checked on; the catalogue requires an explicit maximum for Experiment add-ons.
 
 ## Privacy statement (if the form asks)
 
