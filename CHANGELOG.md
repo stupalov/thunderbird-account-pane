@@ -2,6 +2,10 @@
 
 User-facing changes are listed newest first. These are beta versions; inclusion here does not imply a published release package or validation on every supported platform.
 
+## 0.1.11
+
+- Remove the explicit `strict_max_version` from the manifest: the add-on catalogue's validator rejects `*`, and an omitted key means the same (no upper version cap).
+
 ## 0.1.10
 
 - Show Thunderbird's new-mail star on an account when any of its folders outside Spam/Junk has new messages; All Accounts shows it while collapsed if any account does.
