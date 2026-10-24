@@ -2,6 +2,11 @@
 
 User-facing changes are listed newest first. These are beta versions; inclusion here does not imply a published release package or validation on every supported platform.
 
+## 0.1.13
+
+- Support Thunderbird 140 ESR and Betterbird 140: `strict_min_version` is now `140.0` (maximum stays `158.*`).
+- Fix for Thunderbird 140 ESR: selecting an account opened the account's start page instead of its Inbox, because ESR 140 has neither `nsIMsgFolder.localizedName` nor `FolderUtils.compareFolders`. AccountPane now falls back to the folder `name` and to the same sort order as the ESR 140 folder pane. Behaviour on Thunderbird 157–158 is unchanged.
+
 ## 0.1.12
 
 - Set `strict_max_version` to `158.*`: the add-on catalogue requires an explicit maximum for Experiment add-ons. Each new Thunderbird release will need an AccountPane update (or a compatibility edit in the catalogue).

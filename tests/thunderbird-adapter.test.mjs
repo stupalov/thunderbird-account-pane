@@ -6,7 +6,7 @@ import { loadScript } from "./load-script.mjs";
 const path = "addon/experiment/thunderbird-adapter.js";
 const Adapter = existsSync(path) ? loadScript(path, "AccountPaneAdapter") : null;
 
-function fixture() {
+function fixture(options = {}) {
   const observers = [], prefs = new Map(), folderListeners = new Set(), events = new Map();
   const microtasks = [], displays = [], intListeners = new Set(), listenerMasks = [];
   const flags = { Inbox: 0x1000, Junk: 0x400, Virtual: 0x20 };
@@ -73,7 +73,8 @@ function fixture() {
   assert.ok(Adapter?.create, "Thunderbird adapter factory must exist");
   const adapter = Adapter.create({ window, MailServices, Services,
     Ci: { nsMsgFolderFlags: flags, nsIPop3IncomingServer: {}, nsIFolderListener: { intPropertyChanged: 8, boolPropertyChanged: 16 } },
-    FolderUtils: { compareFolders(a, b) { return a.sortOrder - b.sortOrder || a.localizedName.localeCompare(b.localizedName); } }
+    FolderUtils: options.FolderUtils ??
+      { compareFolders(a, b) { return a.sortOrder - b.sortOrder || a.localizedName.localeCompare(b.localizedName); } }
   });
   return { adapter, window, accounts, archive, inbox, nested, prefs, folderListeners, intListeners, listenerMasks, Services, flags,
     events, observers, displays, makeFolder, MailServices,
@@ -297,6 +298,21 @@ test("folder traversal uses flags and native sibling ordering without reading me
   assert.ok(folders.every(folder => folder.available));
   assert.deepEqual(Array.from(f.adapter.listFolders("local"), folder => folder.uri), ["fixture://local/root"]);
   assert.equal(f.adapter.listFolders("missing").length, 0);
+});
+
+test("Thunderbird 140 ESR folders without localizedName or FolderUtils.compareFolders keep native ordering", () => {
+  // ESR 140 sorts folders inside about:3pane by sortOrder and nsIMsgFolder.name;
+  // FolderUtils.compareFolders and nsIMsgFolder.localizedName came later.
+  const f = fixture({ FolderUtils: {} });
+  for (const folder of [f.archive, f.inbox, f.nested]) {
+    folder.name = folder.localizedName;
+    delete folder.localizedName;
+  }
+  assert.deepEqual(Array.from(f.adapter.listFolders("a"), folder => folder.uri),
+    ["fixture://a/root", "fixture://a/RenamedInbox", "fixture://a/Archive", "fixture://a/Nested"]);
+  f.archive.sortOrder = 10;
+  assert.deepEqual(Array.from(f.adapter.listFolders("a"), folder => folder.uri),
+    ["fixture://a/root", "fixture://a/Archive", "fixture://a/Nested", "fixture://a/RenamedInbox"]);
 });
 
 test("inaccessible folders and failed child enumeration preserve accessible siblings", () => {

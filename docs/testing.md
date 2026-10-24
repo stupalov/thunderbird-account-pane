@@ -1,7 +1,59 @@
-# AccountPane testing journal: 0.1.0–0.1.10
-**Current candidate 0.1.10: 194/194 automated tests pass; the XPI is reproducible.
-Native check of the new-mail star: done by the user on macOS (see 0.1.10 below). The 0.1.9 notes
-below remain the last natively verified install (Thunderbird 158.0, macOS).**
+# AccountPane testing journal: 0.1.0–0.1.13
+**Current candidate 0.1.13: 195/195 automated tests pass; the XPI is reproducible.
+Native check: Thunderbird 140 ESR and Betterbird 140 on Windows 11 (see 0.1.13 below).
+Thunderbird 157–158 behaviour is covered by the 0.1.9/0.1.10 native checks; the 0.1.13
+change only adds fallbacks for APIs that 157–158 already provide.**
+
+## 0.1.13: Thunderbird 140 ESR and Betterbird 140 (2026-10-24)
+
+Setup (Windows 11 VM, Parallels, ARM with x64 emulation, keyboard-only control through
+`prlctl send-key-event`, captures through `prlctl capture`, kept outside Git in
+`dist/esr-20261024/`):
+
+- Thunderbird 140.17.0esr (x64, en-US) from archive.mozilla.org; SHA-256
+  `ff6eac0375eecc6f44529ee48cf2a399d8aff6d24cb7220c82bb041d4472c367` matches the published
+  `SHA256SUMS`. Silent install to its own folder next to Thunderbird 158.
+- Betterbird 140.13.0esr-bb25 (x64, en-US) from betterbird.eu; SHA-256
+  `a4ca8357cd461af56800da33710261126fe5ad73989f701193589c1d51c0a712` matches the published
+  `sha256-140.txt`. Silent install to its own folder.
+- Each got its own disposable copy of the fictional test profile (three offline POP3
+  accounts and Local Folders, fictional messages), without the previously installed
+  add-ons, started with `-no-remote -allow-downgrade -profile`. Updates disabled by policy.
+- Add-ons installed through the Add-ons Manager: gear, Install Add-on From File…, Add.
+  Both builds were accepted with `strict_min_version` 140.0 and showed the usual Experiment
+  "full, unrestricted access" prompt.
+
+Finding and fix:
+
+- With 0.1.12 code (only the minimum lowered), selecting an account filtered the folder
+  tree correctly but opened the account's start page (Account Central) instead of its
+  Inbox. Cause: ESR 140 has no `nsIMsgFolder.localizedName` (the adapter filtered every
+  child folder out) and no `FolderUtils.compareFolders` (sorting threw). Both were checked in
+  the comm-esr140 sources. 0.1.13 falls back to `name` and to the ESR 140 folder-pane order;
+  a new automated test models ESR 140 folders.
+- Experiment code is cached: after reinstalling, Thunderbird had to be restarted before
+  the new adapter ran (as with the theme stylesheet).
+
+Results with the fixed build (code identical to 0.1.13; only the version string differed),
+same scenarios on Thunderbird 140.17.0esr and Betterbird 140.13.0esr-bb25:
+
+| Scenario | TB 140 ESR | Betterbird 140 |
+|---|---|---|
+| Account list above the folder tree (All Accounts, 3 accounts, Local Folders) | pass | pass |
+| Selecting an account filters the tree and opens its Inbox | pass | pass |
+| All Accounts restores the full tree and keeps the open folder | pass | pass |
+| Unread counter on the account row updates live (messages marked unread with M) | pass | pass |
+| Collapse with Left shows the combined counter; Right expands | pass | pass |
+| Shift+F10 on an account opens the native account context menu | pass | pass (includes Betterbird's own "Reset Folder Order") |
+| Keyboard: Tab to the list, Up/Down, Enter, Left/Right | pass | pass |
+| Initial selection follows the open folder (Local Folders at first start) | not observed | pass |
+
+Same as 158 on Windows (0.1.9 check below), apart from Betterbird's defaults (table view,
+classic layout, unread/total in the status bar), which AccountPane does not change.
+
+Not covered: the new-mail star (the offline test accounts receive no mail), drag ordering,
+restart persistence of the selected account, total counters (not enabled), and versions
+141–156, which the manifest allows but which were not tested.
 
 ## 0.1.10: new-mail star
 
