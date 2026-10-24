@@ -4,7 +4,7 @@
 
 **Spec (agreed in chat, 2026-10-24):**
 - Source of truth: `nsIMsgFolder.hasNewMessages` per folder. Walk the account's folder tree like `junkBranches()` does: skip Virtual folders, skip Junk-flagged branches entirely, stop at the first folder with new messages.
-- Updates: the existing `onMessageCountsChanged` path plus the folder-listener int properties `NewMessages` and `BiffState` (Thunderbird itself reacts to both, see about3Pane.js `onFolderIntPropertyChanged`).
+- Updates: the existing `onMessageCountsChanged` path plus the folder listener's `NewMessages` bool property and the `BiffState` int property (Thunderbird itself reacts to both, see about3Pane.js `onFolderBoolPropertyChanged` and `onFolderIntPropertyChanged`).
 - Look: same as native folder rows (about3Pane.css ~500–545, ~595–615): the `--icon-sparkle-star-xs` sparkle overlaid on the icon (`fill: var(--color-yellow-30); stroke: var(--color-amber-50)`), name bold and `color: var(--new-folder-color)`. Fallbacks when the variables are missing: `gold`/`darkgoldenrod` and `currentColor`.
 - All Accounts: star only when collapsed and any visible account has it; nothing when expanded.
 - Accessibility: append the localized label `newMessages` ("new messages" / "есть новые письма") to the row's aria-label and title.
@@ -12,7 +12,7 @@
 
 ## Task 1: adapter
 - `thunderbird-adapter.js` `messageCounts()`: each account entry gains `hasNew: boolean` (false on any error). Share the tree walk with `junkBranches` (refactor into one visitor that returns `{ junk: [...], hasNew }`).
-- The `intPropertyChanged` listener also notifies on `"NewMessages"` and `"BiffState"`.
+- The folder listener also notifies on the `NewMessages` bool property (`boolPropertyChanged`) and the `BiffState` int property.
 - Tests in `tests/thunderbird-adapter.test.mjs` with the existing fixture style: hasNew true when a nested folder has new messages; false when only a Junk branch or a Virtual folder has them; false when the folder throws; `onMessageCountsChanged` fires on `NewMessages` and `BiffState`.
 
 ## Task 2: view, CSS, locales, build validation

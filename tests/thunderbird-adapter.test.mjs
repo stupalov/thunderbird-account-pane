@@ -8,7 +8,7 @@ const Adapter = existsSync(path) ? loadScript(path, "AccountPaneAdapter") : null
 
 function fixture() {
   const observers = [], prefs = new Map(), folderListeners = new Set(), events = new Map();
-  const microtasks = [], displays = [], intListeners = new Set();
+  const microtasks = [], displays = [], intListeners = new Set(), listenerMasks = [];
   const flags = { Inbox: 0x1000, Junk: 0x400, Virtual: 0x20 };
   const makeAccount = (id, type = "imap", extra = {}) => {
     const server = { key: `server-${id}`, prettyName: `Account ${id}`, type, hidden: false,
@@ -59,7 +59,7 @@ function fixture() {
   const MailServices = {
     accounts: { accounts },
     mailSession: {
-      AddFolderListener(listener, mask) { assert.equal(mask, 8); intListeners.add(listener); },
+      AddFolderListener(listener, mask) { listenerMasks.push(mask); intListeners.add(listener); },
       RemoveFolderListener(listener) { intListeners.delete(listener); }
     },
     mfn: { folderAdded: 1, folderDeleted: 2, folderRenamed: 4,
@@ -72,10 +72,10 @@ function fixture() {
   } };
   assert.ok(Adapter?.create, "Thunderbird adapter factory must exist");
   const adapter = Adapter.create({ window, MailServices, Services,
-    Ci: { nsMsgFolderFlags: flags, nsIPop3IncomingServer: {}, nsIFolderListener: { intPropertyChanged: 8 } },
+    Ci: { nsMsgFolderFlags: flags, nsIPop3IncomingServer: {}, nsIFolderListener: { intPropertyChanged: 8, boolPropertyChanged: 16 } },
     FolderUtils: { compareFolders(a, b) { return a.sortOrder - b.sortOrder || a.localizedName.localeCompare(b.localizedName); } }
   });
-  return { adapter, window, accounts, archive, inbox, nested, prefs, folderListeners, intListeners, Services, flags,
+  return { adapter, window, accounts, archive, inbox, nested, prefs, folderListeners, intListeners, listenerMasks, Services, flags,
     events, observers, displays, makeFolder, MailServices,
     flush() { while (microtasks.length) { microtasks.shift()(); } },
     folderEvent() { for (const callback of events.get("folderURIChanged") ?? []) { callback({ detail: "ignore-untrusted-detail" }); } }
@@ -231,10 +231,15 @@ test("a throwing hasNewMessages counts as no new mail without dropping Junk excl
   assert.equal(f.adapter.messageCounts().accounts.a.hasNew, true);
 });
 
-test("NewMessages and BiffState changes notify message count subscribers", () => {
+test("NewMessages bool and BiffState int changes notify message count subscribers", () => {
   const f = fixture(), seen = [];
   f.adapter.onMessageCountsChanged(() => seen.push(true));
-  for (const listener of f.intListeners) listener.onFolderIntPropertyChanged(f.inbox, "NewMessages");
+  // Native NewMessages arrives as a bool property; BiffState as an int.
+  assert.deepEqual(f.listenerMasks, [8 | 16]);
+  for (const listener of f.intListeners) listener.onFolderBoolPropertyChanged(f.inbox, "NewMessages", true, false);
+  f.flush();
+  assert.equal(seen.length, 1);
+  for (const listener of f.intListeners) listener.onFolderBoolPropertyChanged(f.inbox, "Other", false, true);
   f.flush();
   assert.equal(seen.length, 1);
   for (const listener of f.intListeners) listener.onFolderIntPropertyChanged(f.inbox, "BiffState");

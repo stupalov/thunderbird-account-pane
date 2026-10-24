@@ -413,11 +413,15 @@ var AccountPaneAdapter = (() => {
         const listener = {
           onFolderIntPropertyChanged(folder, property) {
             if (property === "TotalUnreadMessages" || property === "TotalMessages" ||
-                property === "FolderFlag" || property === "NewMessages" ||
-                property === "BiffState") notify();
+                property === "FolderFlag" || property === "BiffState") notify();
+          },
+          // Native NewMessages is a bool property (about3Pane.js listens the same way).
+          onFolderBoolPropertyChanged(folder, property) {
+            if (property === "NewMessages") notify();
           }
         };
-        MailServices.mailSession.AddFolderListener(listener, Ci.nsIFolderListener.intPropertyChanged);
+        MailServices.mailSession.AddFolderListener(listener,
+          Ci.nsIFolderListener.intPropertyChanged | Ci.nsIFolderListener.boolPropertyChanged);
         removers.push(() => MailServices.mailSession.RemoveFolderListener(listener));
         const tree = window.document.getElementById("folderTree");
         const observer = new window.MutationObserver(records => {
