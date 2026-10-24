@@ -125,6 +125,32 @@
   color: var(--folder-color-folder, currentColor);
 }
 
+/* Native folder rows (about3Pane.css) overlay the same sparkle on new mail. */
+#accountpane-list .accountpane-new-star {
+  flex: 0 0 12px;
+  width: 12px;
+  height: 12px;
+  margin-inline: -4px -8px;
+  margin-block: -3px 3px;
+  background-image: var(--icon-sparkle-star-xs);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 12px 12px;
+  -moz-context-properties: fill, stroke;
+  fill: var(--color-yellow-30, gold);
+  stroke: var(--color-amber-50, darkgoldenrod);
+  visibility: hidden;
+}
+
+#accountpane-list .accountpane-new-messages > .accountpane-row .accountpane-new-star {
+  visibility: visible;
+}
+
+#accountpane-list .accountpane-new-messages > .accountpane-row .accountpane-name {
+  font-weight: bold;
+  color: var(--new-folder-color, currentColor);
+}
+
 #accountpane-list .accountpane-name {
   flex: 1 1 auto;
   min-width: 0;

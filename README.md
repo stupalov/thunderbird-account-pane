@@ -18,6 +18,7 @@ AccountPane began as an attempt to bring back the way of working with mail that 
 - **Drag to reorder.** Move accounts within the list. The order is saved as Thunderbird's account order.
 - **Familiar folder views.** Use All, Favorites, Unread, Recent, Unified, and Tags. Labels such as “Inbox — Work” become “Inbox” while viewing one account.
 - **Native actions.** Right-click an account for Thunderbird's account context menu. Folder actions remain in the usual folder pane.
+- **New-mail star.** An account shows Thunderbird's new-mail star while any of its folders outside Spam/Junk has new messages. Collapsed All Accounts shows it when any account does.
 - **Keyboard navigation.** Navigate the account tree with the arrow keys and select with Enter or Space.
 
 ## Screenshots

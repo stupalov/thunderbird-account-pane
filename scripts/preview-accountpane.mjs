@@ -20,7 +20,8 @@ if (/--pb-[\w-]+/.test(cssText)) {
 const labels = {
   accounts: 'Accounts', allAccounts: 'All Accounts',
   collapseAccounts: 'Collapse accounts', expandAccounts: 'Expand accounts',
-  unreadCount: '{count} unread', totalCount: '{count} messages'
+  unreadCount: '{count} unread', totalCount: '{count} messages',
+  newMessages: 'new messages'
 };
 const accounts = [
   { id: 'personal', name: 'Personal', type: 'imap' },

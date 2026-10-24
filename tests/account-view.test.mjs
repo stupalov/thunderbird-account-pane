@@ -32,6 +32,20 @@ class Element {
     return this.namespaceURI === SVG_NS ? { baseVal: this.getAttribute("class") || "" } :
       this.getAttribute("class") || "";
   }
+  get classList() {
+    const element = this;
+    const names = () => (element.getAttribute("class") || "").split(/\s+/).filter(Boolean);
+    return {
+      contains(name) { return names().includes(name); },
+      toggle(name, force) {
+        const present = names().includes(name);
+        const next = force === undefined ? !present : Boolean(force);
+        const rest = names().filter(item => item !== name);
+        element.setAttribute("class", (next ? [...rest, name] : rest).join(" "));
+        return next;
+      }
+    };
+  }
   set hidden(value) { value ? this.setAttribute("hidden", "") : this.removeAttribute("hidden"); }
   get hidden() { return this.attributes.has("hidden"); }
   set textContent(value) { this.replaceChildren(); this.text = String(value); }
@@ -99,7 +113,8 @@ function descendants(element) {
 const defaultLabels = {
   accounts: "Accounts", allAccounts: "All Accounts",
   expandAccounts: "Expand accounts", collapseAccounts: "Collapse accounts",
-  unreadCount: "Unread messages: {count}", totalCount: "Total messages: {count}"
+  unreadCount: "Unread messages: {count}", totalCount: "Total messages: {count}",
+  newMessages: "new messages"
 };
 
 function fixture(labels = defaultLabels, cssText = "/* fixture CSS */", onSelect = () => {},
@@ -309,6 +324,61 @@ test("unknown metrics hide affected badges including incomplete collapsed aggreg
   assert.equal(items[0].getAttribute("aria-label"), "All Accounts, Total messages: 7");
 });
 
+test("new-mail class marks only accounts with new messages and the label joins aria-label", () => {
+  const f = fixture();
+  f.view.render(accounts, null);
+  const items = treeItems(f);
+  f.view.updateCounts({ showTotal: false, accounts: {
+    a: { unread: 2, total: 5, hasNew: true }, local: { unread: 0, total: 1, hasNew: false }
+  } });
+  assert.deepEqual(items.map(item => item.classList.contains("accountpane-new-messages")), [false, true, false]);
+  assert.equal(items[1].getAttribute("aria-label"), "Fixture A, Unread messages: 2, new messages");
+  assert.equal(items[1].getAttribute("title"), "Fixture A, Unread messages: 2, new messages");
+  assert.equal(items[2].getAttribute("aria-label"), "Local Folders");
+  f.view.updateCounts({ showTotal: false, accounts: { a: { unread: 2, total: 5, hasNew: false } } });
+  assert.equal(items[1].classList.contains("accountpane-new-messages"), false);
+  assert.equal(items[1].getAttribute("aria-label"), "Fixture A, Unread messages: 2");
+});
+
+test("All Accounts shows new mail only while collapsed and some account has it", () => {
+  const f = fixture();
+  f.view.render(accounts, null);
+  const items = treeItems(f);
+  f.view.updateCounts({ showTotal: false, accounts: {
+    a: { unread: 0, total: 5, hasNew: false }, local: { unread: 1, total: 1, hasNew: true }
+  } });
+  assert.equal(items[0].classList.contains("accountpane-new-messages"), false);
+  assert.equal(items[0].getAttribute("aria-label"), "All Accounts");
+  f.view.setExpanded(false);
+  assert.equal(items[0].classList.contains("accountpane-new-messages"), true);
+  assert.equal(items[0].getAttribute("aria-label"), "All Accounts, Unread messages: 1, new messages");
+  f.view.updateCounts({ showTotal: false, accounts: {
+    a: { unread: 0, total: 5, hasNew: false }, local: { unread: 1, total: 1, hasNew: false }
+  } });
+  assert.equal(items[0].classList.contains("accountpane-new-messages"), false);
+  f.view.updateCounts({ showTotal: false, accounts: { a: { unread: 0, total: 5, hasNew: true } } });
+  assert.equal(items[0].classList.contains("accountpane-new-messages"), true);
+  f.view.setExpanded(true);
+  assert.equal(items[0].classList.contains("accountpane-new-messages"), false);
+  assert.equal(items[1].classList.contains("accountpane-new-messages"), true);
+});
+
+test("every row carries a decorative star immediately before its icon", () => {
+  const f = fixture();
+  f.view.render(accounts, null);
+  for (const item of treeItems(f)) {
+    const children = row(item).children;
+    const icon = children.findIndex(node => node.getAttribute("class") === "accountpane-icon");
+    // Native folder rows put .new-icon before .icon; the margins rely on it.
+    assert.ok(icon > 0);
+    const star = children[icon - 1];
+    assert.equal(star.getAttribute("class"), "accountpane-new-star");
+    assert.equal(star.getAttribute("aria-hidden"), "true");
+    assert.equal(star.textContent, "");
+    assert.equal(item.classList.contains("accountpane-new-messages"), false);
+  }
+});
+
 test("tree keyboard expands collapses and moves only through visible account items", () => {
   const f = fixture();
   f.view.render(accounts, "a");
@@ -415,6 +485,17 @@ test("localized labels name the tree root and disclosure in both states", () => 
     assert.equal(part(root, "accountpane-disclosure").getAttribute("aria-label"), expected[2]);
     f.view.setExpanded(false);
     assert.equal(part(root, "accountpane-disclosure").getAttribute("aria-label"), expected[3]);
+  }
+});
+
+test("localized new-mail label reaches the row aria-label", () => {
+  for (const [locale, expected] of [["en", "new messages"], ["ru", "есть новые письма"]]) {
+    const messages = JSON.parse(readFileSync(`addon/_locales/${locale}/messages.json`, "utf8"));
+    const labels = Object.fromEntries(Object.entries(messages).map(([key, value]) => [key, value.message]));
+    const f = fixture(labels);
+    f.view.render(accounts, null);
+    f.view.updateCounts({ showTotal: false, accounts: { a: { unread: 0, total: 0, hasNew: true } } });
+    assert.equal(treeItems(f)[1].getAttribute("aria-label"), `Fixture A, ${expected}`);
   }
 });
 

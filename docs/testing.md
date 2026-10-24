@@ -1,10 +1,22 @@
-# AccountPane testing journal: 0.1.0–0.1.9
+# AccountPane testing journal: 0.1.0–0.1.10
+**Current candidate 0.1.10: 194/194 automated tests pass; the XPI is reproducible.
+Native check of the new-mail star: done by the user on macOS (see 0.1.10 below). The 0.1.9 notes
+below remain the last natively verified install (Thunderbird 158.0, macOS).**
 
-**Current candidate 0.1.9: 186/186 automated tests pass; the XPI is reproducible.
-The manifest permits Gecko 157.0 and later with an explicit wildcard maximum.
-This is an installation policy, not runtime verification of future versions.
-Version 0.1.9 is installed and active in the working profile on Thunderbird 158.0
-(macOS); see the native note below for what was and was not observed.**
+## 0.1.10: new-mail star
+
+- Changed: the adapter reports per-account new mail (`hasNew`) outside Junk and
+  Virtual folders; the view shows Thunderbird's new-mail star on account rows,
+  and on collapsed All Accounts when any account has it.
+- All automated tests pass (194/194).
+- Two builds are byte-identical, SHA-256 `1e29d848edfdd65399cc67b1d3bc1bf1928709b345478754c033a4cbe381c8aa` (after the listener and star-placement fixes).
+  (`dist/accountpane-0.1.10.xpi`).
+- Native check (user, macOS 27, Thunderbird 158.0, working profile, 2026-10-24): installed
+  over 0.1.9; the star appears on the account cloud at the top-left corner like native
+  folders (a first build placed it top-right; fixed by inserting the star element before
+  the icon). The install prompt shows the usual Experiment "full, unrestricted access"
+  text, as documented in the README.
+
 
 ## 0.1.9: forward-compatible manifest policy
 

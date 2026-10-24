@@ -6,5 +6,6 @@
   "expandAccounts": { "message": "Expand accounts" },
   "collapseAccounts": { "message": "Collapse accounts" },
   "unreadCount": { "message": "Unread messages: {count}" },
-  "totalCount": { "message": "Total messages: {count}" }
+  "totalCount": { "message": "Total messages: {count}" },
+  "newMessages": { "message": "new messages" }
 }

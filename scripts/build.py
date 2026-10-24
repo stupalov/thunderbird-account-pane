@@ -76,7 +76,7 @@ def build(root):
                               "description", "permissions", "background",
                               "browser_specific_settings", "experiment_apis"})
     require(manifest["background"] == {"scripts": ["background.js"]})
-    require(manifest["manifest_version"] == 2 and manifest["version"] == "0.1.9")
+    require(manifest["manifest_version"] == 2 and manifest["version"] == "0.1.10")
     icons = {str(size): f"icons/accountpane-{size}.png" for size in (16, 32, 48, 64, 128)}
     require(manifest["icons"] == icons and all(path in inputs for path in icons.values()))
     require(manifest["default_locale"] == "en" and manifest["permissions"] == ["storage"])
@@ -107,11 +107,12 @@ def build(root):
     for locale in ("en", "ru"):
         messages = data[f"_locales/{locale}/messages.json"]
         for key in message_ids | {"extensionName", "extensionDescription", "accounts", "allAccounts",
-                                  "expandAccounts", "collapseAccounts", "unreadCount", "totalCount"}:
+                                  "expandAccounts", "collapseAccounts", "unreadCount", "totalCount",
+                                  "newMessages"}:
             require(isinstance(messages[key]["message"], str) and bool(messages[key]["message"]))
     output_dir = root / "dist"
     require(not output_dir.is_symlink())
-    output = output_dir / "accountpane-0.1.9.xpi"
+    output = output_dir / "accountpane-0.1.10.xpi"
     require(not output.is_symlink())
     output_dir.mkdir(exist_ok=True)
     temporary = None

@@ -67,7 +67,8 @@ var accountPane = class extends ExtensionCommon.ExtensionAPI {
       expandAccounts: this.extension.localeData.localizeMessage("expandAccounts"),
       collapseAccounts: this.extension.localeData.localizeMessage("collapseAccounts"),
       unreadCount: this.extension.localeData.localizeMessage("unreadCount"),
-      totalCount: this.extension.localeData.localizeMessage("totalCount") };
+      totalCount: this.extension.localeData.localizeMessage("totalCount"),
+      newMessages: this.extension.localeData.localizeMessage("newMessages") };
     const attachPane = window => {
       if (this._disposed || generation !== this._generation || !this._fire) return () => {};
       let adapter, filter, view, controller;
