@@ -1,4 +1,4 @@
-# ATN listing texts for Tangaroa
+# ATN listing texts for AccountPane
 
 Copy-and-paste material for the addons.thunderbird.net developer hub. Keep the XPI identical to the GitHub release of the same version.
 
@@ -6,61 +6,71 @@ Copy-and-paste material for the addons.thunderbird.net developer hub. Keep the X
 
 | Field | Value |
 |---|---|
-| Name | Tangaroa |
-| Add-on ID (from the manifest, fixed) | `tangaroa@stupalov.github.io` |
-| Type | Theme (static theme with `theme_experiment`) |
-| Version | the manifest version of the uploaded XPI (0.2.1) |
-| Category | Themes |
-| Tags | postbox, tangaroa, dark, light, navy |
-| License | MIT License (theme); the adapted Postbird stylesheet is MIT, kept as `LICENSE-Postbird` |
-| Homepage | https://github.com/stupalov/thunderbird-tangaroa |
-| Support site | https://github.com/stupalov/thunderbird-tangaroa/issues |
-| Icon | `theme/icons/tangaroa-64.png` (also 48, 32) |
-| Screenshots | `docs/images/tangaroa-light.png`, `docs/images/tangaroa-dark.png` (test profile, fictional accounts) |
-| Preview | `theme/preview.png` is inside the XPI; ATN may also generate its own from the manifest colours |
+| Name | AccountPane |
+| Add-on ID (from the manifest, fixed) | `accountpane@stupalov.github.io` |
+| Version | the manifest version of the uploaded XPI (0.1.11) |
+| Category | Folders and Filters (alternative: User Interface) |
+| Tags | accounts, folder pane, folders, postbox |
+| License | MIT License |
+| Homepage | https://github.com/stupalov/thunderbird-account-pane |
+| Support site | https://github.com/stupalov/thunderbird-account-pane/issues |
+| Privacy policy | none required; see "Privacy statement" below if the form asks |
+| Icon | `addon/icons/accountpane-128.png` (also 64, 48, 32) |
+| Screenshots | `docs/images/accountpane-light.png`, `docs/images/accountpane-dark.png` (fictional accounts, browser-rendered previews) |
+| Experiment | yes: `experiment_apis.accountPane` |
 
 ## Summary (English, ≤ 250 characters)
 
-The Postbox Tangaroa look for Thunderbird: dark navy folder pane, light list and reading area, orange unread badges. Includes a dark variant that follows the system colour scheme. Works in table and card views.
+A separate account list above the folder pane, Postbox-style. Pick an account to see only its folders; All Accounts restores the full tree. Counters, drag-to-reorder, native context menu, keyboard navigation.
 
 ## Summary (Russian)
 
-Оформление Postbox Tangaroa для Thunderbird: тёмно-синяя панель папок, светлые список и область чтения, оранжевые счётчики. Есть тёмный вариант, следующий за цветовой схемой системы. Работает в табличном виде и в карточках.
+Отдельный список аккаунтов над панелью папок, как в Postbox. Выберите аккаунт, чтобы видеть только его папки; «Все аккаунты» возвращает полное дерево. Счётчики, перетаскивание, штатное контекстное меню, клавиатура.
 
 ## Description (English)
 
-Tangaroa reproduces the look of the Postbox mail client with its Tangaroa theme in Thunderbird: a dark navy folder pane, a light message list and reading area, orange unread badges, blue selection and the system font. It was made after Postbox stopped being updated, to keep the familiar look of mail in Thunderbird. The stylesheet is adapted from Postbird (MIT) with the Tangaroa palette.
+AccountPane adds a dedicated account list at the top of Thunderbird's folder pane. Choose an account and the folder pane shows just that account's folders, opening its Inbox; choose All Accounts to get the full tree back while keeping the current folder open.
 
-- Light variant: the Postbox Tangaroa palette unchanged.
-- Dark variant: based on Postbox Midnight with Tangaroa's key colours. The theme follows the system colour scheme; nothing to configure.
-- Styles the main window in table and card views: toolbar, tabs, folder pane, message list, message header, quick filter, menus, status bar.
-- Pairs with the AccountPane extension, which adds a Postbox-style account list above the folder pane: https://github.com/stupalov/thunderbird-account-pane
+Features:
+- One account at a time: the folder pane stays focused on the account you choose, in every folder view (All, Favorites, Unread, Recent, Unified, Tags).
+- Collapsible account group with combined counters.
+- Unread and total counters per account; Spam/Junk folders are excluded from the sums.
+- A star marks accounts with new messages, like Thunderbird's folders.
+- Drag accounts to reorder them; the order is saved as Thunderbird's account order.
+- Right-click an account for Thunderbird's own account context menu.
+- Full keyboard navigation.
+- English and Russian interface.
 
-Known limitation: in the dark variant the body of an open message keeps Thunderbird's own dark-reader colours; a theme cannot style message content. The toggle in the message header shows a message in light colours.
+Why the install prompt asks for full access: AccountPane uses Thunderbird's Experiment API, because there is no WebExtension API for changing the folder pane. Thunderbird shows the same "full, unrestricted access" prompt for every Experiment add-on. AccountPane reads account and folder metadata, reorders accounts when you drag them and stores the selected account locally. It does not read message bodies or passwords, makes no network requests and sends no telemetry. The source code is open and the XPI build is reproducible.
 
-Requires Thunderbird 157 or newer. Beta: checked on Thunderbird 158 on macOS and Windows 11. Independent project, not affiliated with Thunderbird or Postbox.
+Requires Thunderbird 157 or newer. Beta: checked on Thunderbird 157–158 on macOS and 158 on Windows 11. Independent project, not affiliated with Thunderbird or Postbox.
 
 ## Description (Russian)
 
-Tangaroa воспроизводит в Thunderbird оформление почтового клиента Postbox с темой Tangaroa: тёмно-синяя панель папок, светлые список писем и область чтения, оранжевые счётчики непрочитанных, голубое выделение и системный шрифт. Тема сделана после того, как Postbox перестал обновляться, чтобы сохранить привычный вид почты в Thunderbird. Стили адаптированы из Postbird (MIT) с палитрой Tangaroa.
+AccountPane добавляет отдельный список аккаунтов в верхнюю часть панели папок Thunderbird. Выберите аккаунт — панель папок покажет только его папки и откроет «Входящие»; выберите «Все аккаунты», чтобы вернуть полное дерево, сохранив открытую папку.
 
-- Светлый вариант: палитра Postbox Tangaroa без изменений.
-- Тёмный вариант: на основе Postbox Midnight с ключевыми цветами Tangaroa. Тема следует цветовой схеме системы, настраивать ничего не нужно.
-- Оформляет главное окно в табличном виде и в карточках: панель инструментов, вкладки, панель папок, список писем, заголовок письма, быстрый фильтр, меню, строку состояния.
-- Сочетается с расширением AccountPane, добавляющим список аккаунтов над панелью папок, как в Postbox: https://github.com/stupalov/thunderbird-account-pane
+Возможности:
+- Один аккаунт за раз во всех режимах панели папок (Все, Избранные, Непрочитанные, Недавние, Объединённые, Метки).
+- Сворачиваемая группа аккаунтов с суммарными счётчиками.
+- Счётчики непрочитанных и всех писем по аккаунтам; папки Спама исключены из сумм.
+- Звёздочка у аккаунтов с новыми письмами, как у папок Thunderbird.
+- Перетаскивание аккаунтов; порядок сохраняется в самом Thunderbird.
+- Штатное контекстное меню аккаунта по правому клику.
+- Полное управление с клавиатуры.
+- Интерфейс на английском и русском.
 
-Известное ограничение: в тёмном варианте тело открытого письма остаётся в цветах тёмного режима чтения Thunderbird; тема не может оформлять содержимое письма. Переключатель в заголовке письма показывает его в светлых цветах.
+Почему при установке запрашивается полный доступ: AccountPane использует Experiment API, потому что штатного WebExtension-интерфейса для изменения панели папок нет. Thunderbird показывает одинаковый запрос «полный, неограниченный доступ» для любого Experiment-дополнения. AccountPane читает метаданные аккаунтов и папок, меняет порядок аккаунтов при перетаскивании и хранит выбранный аккаунт локально. Он не читает содержимое писем и пароли, не выполняет сетевых запросов и не отправляет телеметрию. Исходный код открыт, сборка XPI воспроизводима.
 
-Требуется Thunderbird 157 или новее. Бета: проверено на Thunderbird 158 на macOS и Windows 11. Независимый проект, не связан с Thunderbird и Postbox.
+Требуется Thunderbird 157 или новее. Бета: проверено на Thunderbird 157–158 на macOS и 158 на Windows 11. Независимый проект, не связан с Thunderbird и Postbox.
 
 ## Notes to reviewer (English)
 
-- Static theme: `manifest.json` with `theme`, `dark_theme` and `theme_experiment`; no scripts, no permissions, no network access.
-- `theme_experiment.stylesheet` (`tangaroa.css`) styles the main window (`messenger.xhtml`, `about:3pane`, `about:message`) using Thunderbird's own CSS variables and plain DOM selectors; custom `tg_*` colour keys are mapped to `--tg-*` variables. The light/dark palettes come from Postbox theme exports (colour values only); no Postbox assets are included.
-- `preview.png` at the XPI root is the theme card preview.
-- Source: https://github.com/stupalov/thunderbird-tangaroa (tag v0.2.1); reproducible build via `scripts/build.py`, 18 tests via `node --test tests/*.test.mjs`; SHA-256 in the GitHub release notes.
-- `strict_max_version` is `*` on purpose; a manifest-only update can set an explicit maximum if required.
+- Experiment API `accountPane` (`addon/experiment/`): injects an account list element into the folder pane of `about:3pane`, reads accounts and folders through `MailServices.accounts`, folder counts through `nsIMsgFolder.getNumUnread/getTotalMessages` and `hasNewMessages`, reorders accounts with `MailServices.accounts.reorderAccounts`, opens folders through the folder pane's own selection, and listens to folder notifications (`nsIFolderListener`, `MailServices.mfn`). No network access, no message content, no password access, no telemetry.
+- The background script only stores settings (`storage` permission) and relays them to the experiment.
+- Source: https://github.com/stupalov/thunderbird-account-pane (tag v0.1.11). No minification or build step beyond zipping the `addon/` allowlist (`scripts/build.py`); the XPI SHA-256 is printed in the GitHub release notes.
+- Tests: `node --test tests/*.test.mjs` (194 tests).
+- No `strict_max_version` on purpose (the validator rejects `*`): the add-on tracks Thunderbird releases; if ATN policy requires an explicit maximum for Experiments, a manifest-only update can set it.
 
 ## Privacy statement (if the form asks)
 
-Tangaroa is a theme. It contains no code, collects no data and makes no network requests.
+AccountPane does not collect, store or transmit personal data. It stores only its own settings (selected account, last folder per account, collapsed state) in the add-on's local storage.
