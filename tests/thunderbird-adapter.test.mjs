@@ -108,7 +108,8 @@ test("root recursive counts include collapsed physical folders and exclude invis
   f.accounts[5].incomingServer.rootFolder.unread = 99;
   assert.deepEqual(structuredClone(f.adapter.messageCounts()), {
     showTotal: false, accounts: {
-      b: { unread: 3, total: 10 }, a: { unread: 4, total: 12 }, local: { unread: 2, total: 5 }
+      b: { unread: 3, total: 10, hasNew: false }, a: { unread: 4, total: 12, hasNew: false },
+      local: { unread: 2, total: 5, hasNew: false }
     }
   });
   f.window.folderPane.hideLocalFolders = true;
@@ -122,8 +123,8 @@ test("unavailable native count is unknown without affecting other metrics or acc
   root.total = 8;
   Object.defineProperty(f.accounts[0].incomingServer.rootFolder, "total", { get() { throw Error("unavailable"); } });
   const counts = f.adapter.messageCounts().accounts;
-  assert.deepEqual(structuredClone(counts.a), { unread: null, total: 8 });
-  assert.deepEqual(structuredClone(counts.b), { unread: 0, total: null });
+  assert.deepEqual(structuredClone(counts.a), { unread: null, total: 8, hasNew: false });
+  assert.deepEqual(structuredClone(counts.b), { unread: 0, total: null, hasNew: false });
 });
 
 test("account recursive counts subtract every physical Junk branch once", () => {
@@ -140,7 +141,7 @@ test("account recursive counts subtract every physical Junk branch once", () => 
   junk.subFolders.push(makeJunk("nested junk", 2, 3));
   const otherJunk = makeJunk("Autre dossier", 3, 7);
   root.subFolders.push(junk, otherJunk);
-  assert.deepEqual(structuredClone(f.adapter.messageCounts().accounts.a), { unread: 31, total: 80 });
+  assert.deepEqual(structuredClone(f.adapter.messageCounts().accounts.a), { unread: 31, total: 80, hasNew: false });
 });
 
 test("virtual Junk subtree is skipped and literal Spam without the Junk flag is counted", () => {
@@ -153,7 +154,7 @@ test("virtual Junk subtree is skipped and literal Spam without the Junk flag is 
   const virtualJunk = make("virtual", f.flags.Junk | f.flags.Virtual, 4, 8);
   virtualJunk.subFolders.push(make("physical-under-virtual", f.flags.Junk, 1, 2));
   root.subFolders.push(virtualJunk, make("Spam", 0, 2, 3));
-  assert.deepEqual(structuredClone(f.adapter.messageCounts().accounts.a), { unread: 10, total: 20 });
+  assert.deepEqual(structuredClone(f.adapter.messageCounts().accounts.a), { unread: 10, total: 20, hasNew: false });
 });
 
 test("Junk metrics fail independently and failed enumeration invalidates both metrics", () => {
@@ -164,9 +165,9 @@ test("Junk metrics fail independently and failed enumeration invalidates both me
     localizedName: "Junk", subFolders: [], getNumUnread() { return -1; },
     getTotalMessages() { return 5; } };
   root.subFolders.push(junk);
-  assert.deepEqual(structuredClone(f.adapter.messageCounts().accounts.a), { unread: null, total: 25 });
+  assert.deepEqual(structuredClone(f.adapter.messageCounts().accounts.a), { unread: null, total: 25, hasNew: false });
   Object.defineProperty(root, "subFolders", { get() { throw Error("enumeration failed"); } });
-  assert.deepEqual(structuredClone(f.adapter.messageCounts().accounts.a), { unread: null, total: null });
+  assert.deepEqual(structuredClone(f.adapter.messageCounts().accounts.a), { unread: null, total: null, hasNew: false });
 });
 
 test("negative post-subtraction counts become unknown without clamping", () => {
@@ -174,13 +175,13 @@ test("negative post-subtraction counts become unknown without clamping", () => {
   root.unread = 2; root.total = 10;
   root.subFolders.push({ URI: "fixture://a/Junk", server: root.server, flags: f.flags.Junk,
     localizedName: "Junk", subFolders: [], getNumUnread() { return 3; }, getTotalMessages() { return 4; } });
-  assert.deepEqual(structuredClone(f.adapter.messageCounts().accounts.a), { unread: null, total: 6 });
+  assert.deepEqual(structuredClone(f.adapter.messageCounts().accounts.a), { unread: null, total: 6, hasNew: false });
 });
 
 test("no Junk branches preserve native counts and FolderFlag notifications coalesce", () => {
   const f = fixture(), root = f.accounts[1].incomingServer.rootFolder;
   root.unread = 6; root.total = 14;
-  assert.deepEqual(structuredClone(f.adapter.messageCounts().accounts.a), { unread: 6, total: 14 });
+  assert.deepEqual(structuredClone(f.adapter.messageCounts().accounts.a), { unread: 6, total: 14, hasNew: false });
   const seen = [];
   f.adapter.onMessageCountsChanged(() => seen.push(f.adapter.messageCounts()));
   for (const listener of f.intListeners) {
@@ -189,6 +190,56 @@ test("no Junk branches preserve native counts and FolderFlag notifications coale
   }
   f.flush();
   assert.equal(seen.length, 1);
+});
+
+test("hasNew follows physical non-junk folders at any depth", () => {
+  const f = fixture();
+  assert.equal(f.adapter.messageCounts().accounts.a.hasNew, false);
+  f.nested.hasNewMessages = true;
+  const counts = f.adapter.messageCounts().accounts;
+  assert.equal(counts.a.hasNew, true);
+  assert.equal(counts.b.hasNew, false);
+});
+
+test("hasNew ignores new messages inside Junk branches and Virtual folders", () => {
+  const f = fixture(), root = f.accounts[1].incomingServer.rootFolder;
+  root.unread = 5; root.total = 9;
+  const make = (name, flags, extra = {}) => ({ URI: `fixture://a/${name}`, server: root.server,
+    flags, localizedName: name, subFolders: [], getNumUnread() { return 1; },
+    getTotalMessages() { return 2; }, ...extra });
+  const junk = make("Junk", f.flags.Junk, { hasNewMessages: true });
+  junk.subFolders.push(make("junk-child", 0, { hasNewMessages: true }));
+  root.subFolders.push(junk);
+  assert.deepEqual(structuredClone(f.adapter.messageCounts().accounts.a),
+    { unread: 4, total: 7, hasNew: false });
+  junk.flags = 0; junk.hasNewMessages = false; junk.subFolders = [];
+  const virtual = make("Search", f.flags.Virtual, { hasNewMessages: true });
+  virtual.subFolders.push(make("under-virtual", 0, { hasNewMessages: true }));
+  root.subFolders.push(virtual);
+  assert.equal(f.adapter.messageCounts().accounts.a.hasNew, false);
+});
+
+test("a throwing hasNewMessages counts as no new mail without dropping Junk exclusion", () => {
+  const f = fixture(), root = f.accounts[1].incomingServer.rootFolder;
+  root.unread = 8; root.total = 20;
+  Object.defineProperty(f.archive, "hasNewMessages", { get() { throw Error("unavailable"); } });
+  root.subFolders.push({ URI: "fixture://a/Junk", server: root.server, flags: f.flags.Junk,
+    localizedName: "Junk", subFolders: [], getNumUnread() { return 3; }, getTotalMessages() { return 4; } });
+  assert.deepEqual(structuredClone(f.adapter.messageCounts().accounts.a),
+    { unread: 5, total: 16, hasNew: false });
+  f.inbox.hasNewMessages = true;
+  assert.equal(f.adapter.messageCounts().accounts.a.hasNew, true);
+});
+
+test("NewMessages and BiffState changes notify message count subscribers", () => {
+  const f = fixture(), seen = [];
+  f.adapter.onMessageCountsChanged(() => seen.push(true));
+  for (const listener of f.intListeners) listener.onFolderIntPropertyChanged(f.inbox, "NewMessages");
+  f.flush();
+  assert.equal(seen.length, 1);
+  for (const listener of f.intListeners) listener.onFolderIntPropertyChanged(f.inbox, "BiffState");
+  f.flush();
+  assert.equal(seen.length, 2);
 });
 
 test("native integer count changes coalesce separately and stop after disposal", () => {

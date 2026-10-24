@@ -55,8 +55,11 @@ var AccountPaneAdapter = (() => {
       return accountForServer(row?.dataset?.serverKey);
     }
 
-    function junkBranches(root) {
-      const result = [];
+    // One walk serves Junk exclusion and the native new-mail star: both skip
+    // virtual searches and every physical Junk branch.
+    function scanFolders(root) {
+      const junk = [];
+      let hasNew = false;
       const visited = new Set();
       function visit(folder) {
         const uri = folder.URI;
@@ -70,13 +73,20 @@ var AccountPaneAdapter = (() => {
         // their results, or follow them into another account's physical folders.
         if (flags & Ci.nsMsgFolderFlags.Virtual) return;
         if (flags & Ci.nsMsgFolderFlags.Junk) {
-          result.push(folder);
+          junk.push(folder);
           return; // Its recursive count includes every nested junk branch once.
+        }
+        if (!hasNew) {
+          try {
+            hasNew = folder.hasNewMessages === true;
+          } catch {
+            // An unreadable flag is no new mail; Junk exclusion still continues.
+          }
         }
         for (const child of folder.subFolders) visit(child);
       }
       visit(root);
-      return result;
+      return { junk, hasNew };
     }
 
     function messageCounts() {
@@ -87,7 +97,7 @@ var AccountPaneAdapter = (() => {
         try {
           const server = account.incomingServer;
           const root = server.rootFolder;
-          const excluded = junkBranches(root);
+          const { junk: excluded, hasNew } = scanFolders(root);
           const count = method => {
             try {
               let value = root[method](true);
@@ -106,11 +116,11 @@ var AccountPaneAdapter = (() => {
             }
           };
           accounts[account.key] = {
-            unread: count("getNumUnread"), total: count("getTotalMessages")
+            unread: count("getNumUnread"), total: count("getTotalMessages"), hasNew
           };
         } catch {
           // A missing server/root cannot supply reliable counts.
-          accounts[account.key] = { unread: null, total: null };
+          accounts[account.key] = { unread: null, total: null, hasNew: false };
         }
       }
       let showTotal = false;
@@ -403,7 +413,8 @@ var AccountPaneAdapter = (() => {
         const listener = {
           onFolderIntPropertyChanged(folder, property) {
             if (property === "TotalUnreadMessages" || property === "TotalMessages" ||
-                property === "FolderFlag") notify();
+                property === "FolderFlag" || property === "NewMessages" ||
+                property === "BiffState") notify();
           }
         };
         MailServices.mailSession.AddFolderListener(listener, Ci.nsIFolderListener.intPropertyChanged);
