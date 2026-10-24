@@ -8,7 +8,7 @@
 
 AccountPane создан как попытка вернуть привычный способ работы с почтой из Postbox после того, как Postbox перестал обновляться и был заброшен. Расширение добавляет в Thunderbird список аккаунтов в стиле Postbox и работает с вашими существующими аккаунтами и штатными элементами управления папками. Для похожего на Postbox оформления есть тема-компаньон [Thunderbird Tangaroa](https://github.com/stupalov/thunderbird-tangaroa).
 
-**Бета-версия:** требуется Thunderbird **157 или 158**: в манифесте указаны версии, на которых AccountPane проверен (157–158 на macOS, 158 на Windows 11), под каждый новый выпуск Thunderbird выходит обновление. Изменения внутренних API Thunderbird всё ещё могут потребовать обновления AccountPane.
+**Бета-версия:** требуется **Thunderbird 140 ESR, Betterbird 140 или Thunderbird 157–158**. AccountPane проверен в Thunderbird 157–158 на macOS и в Thunderbird 140 ESR, Betterbird 140 и Thunderbird 158 на Windows 11. Версии 141–156 входят в диапазон манифеста, но не проверялись. Под каждый новый выпуск Thunderbird выходит обновление AccountPane. Изменения внутренних API Thunderbird всё ещё могут потребовать обновления AccountPane.
 
 ## Возможности
 

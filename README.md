@@ -8,7 +8,7 @@ A dedicated account list for Thunderbird, inspired by Postbox. Choose an account
 
 AccountPane began as an attempt to bring back the way of working with mail that Postbox offered, after Postbox stopped being updated and was abandoned. It adds the Postbox-style account list to Thunderbird and works with your existing accounts and Thunderbird's folder controls. For a matching Postbox-like appearance, see the companion theme [Thunderbird Tangaroa](https://github.com/stupalov/thunderbird-tangaroa).
 
-**Beta:** requires Thunderbird **157 or 158**; the manifest names the versions AccountPane was checked on (157–158 on macOS, 158 on Windows 11), and each new Thunderbird release gets an AccountPane update. Future Thunderbird changes to internal APIs may still require an AccountPane update.
+**Beta:** requires **Thunderbird 140 ESR, Betterbird 140 or Thunderbird 157–158**. AccountPane was checked on Thunderbird 157–158 on macOS and on Thunderbird 140 ESR, Betterbird 140 and Thunderbird 158 on Windows 11. Versions 141–156 fall inside the manifest range but were not tested. Each new Thunderbird release gets an AccountPane update. Future Thunderbird changes to internal APIs may still require an AccountPane update.
 
 ## Features
 

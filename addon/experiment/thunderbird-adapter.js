@@ -3,6 +3,15 @@ var AccountPaneAdapter = (() => {
   function create({ window, MailServices, Services, Ci, FolderUtils }) {
     const cleanups = new Set();
     let disposed = false;
+    // Thunderbird 140 ESR has neither nsIMsgFolder.localizedName nor
+    // FolderUtils.compareFolders; it sorts folders inside about:3pane by
+    // sortOrder, then by the (already localized) name. Match that order.
+    const folderName = folder => typeof folder.localizedName === "string" ?
+      folder.localizedName : folder.name;
+    const nameCollator = new Intl.Collator(undefined, { sensitivity: "base" });
+    const compareFolders = typeof FolderUtils?.compareFolders === "function" ?
+      FolderUtils.compareFolders : (a, b) =>
+        a.sortOrder - b.sortOrder || nameCollator.compare(folderName(a), folderName(b));
 
     function listAccounts() {
       const result = [];
@@ -162,12 +171,12 @@ var AccountPaneAdapter = (() => {
         children = children.filter(child => {
           try {
             return typeof child.URI === "string" && child.server.key === visible.serverKey &&
-              Number.isFinite(child.sortOrder) && typeof child.localizedName === "string";
+              Number.isFinite(child.sortOrder) && typeof folderName(child) === "string";
           } catch {
             return false;
           }
         });
-        children.sort(FolderUtils.compareFolders);
+        children.sort(compareFolders);
         for (const child of children) {
           visit(child);
         }
