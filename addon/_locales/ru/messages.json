@@ -6,5 +6,6 @@
   "expandAccounts": { "message": "Развернуть аккаунты" },
   "collapseAccounts": { "message": "Свернуть аккаунты" },
   "unreadCount": { "message": "Непрочитанных сообщений: {count}" },
-  "totalCount": { "message": "Всего сообщений: {count}" }
+  "totalCount": { "message": "Всего сообщений: {count}" },
+  "newMessages": { "message": "есть новые письма" }
 }

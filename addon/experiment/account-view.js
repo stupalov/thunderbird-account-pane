@@ -106,6 +106,11 @@ var AccountPaneView = (() => {
       }
       const kind = root ? "all" : account.type === "none" || account.local ? "monitor" : "cloud";
       ownRow.append(createSvg(document, ICON_PATHS[kind], "accountpane-icon", kind));
+      // Native folder rows overlay a sparkle on the icon; CSS shows it on new mail.
+      const star = document.createElement("span");
+      star.className = "accountpane-new-star";
+      star.setAttribute("aria-hidden", "true");
+      ownRow.append(star);
       const name = document.createElement("span");
       name.className = "accountpane-name";
       name.textContent = account.name;
@@ -380,19 +385,23 @@ var AccountPaneView = (() => {
         }
         return sum;
       };
-      const aggregate = { unread: all("unread"), total: all("total") };
+      const aggregate = { unread: all("unread"), total: all("total"),
+        hasNew: accountEntries.some(entry => snapshot.accounts?.[entry.id]?.hasNew === true) };
       const description = (template, value) => template?.replace("{count}", String(value));
       for (const entry of entries) {
         const counts = entry.id === null ? expanded ? null : aggregate : snapshot.accounts?.[entry.id];
         const unread = counts?.unread;
         const total = counts?.total;
+        const showNew = counts?.hasNew === true;
         const showUnread = Number.isSafeInteger(unread) && unread > 0;
         const showTotal = snapshot.showTotal && Number.isSafeInteger(total) && total >= 0;
         entry.unread.textContent = showUnread ? String(unread) : "";
         entry.total.textContent = showTotal ? String(total) : "";
+        entry.option.classList.toggle("accountpane-new-messages", showNew);
         const parts = [entry.name];
         if (showUnread) parts.push(description(labels.unreadCount, unread));
         if (showTotal) parts.push(description(labels.totalCount, total));
+        if (showNew) parts.push(labels.newMessages);
         entry.option.setAttribute("aria-label", parts.filter(Boolean).join(", "));
         entry.option.setAttribute("title", parts.filter(Boolean).join(", "));
       }

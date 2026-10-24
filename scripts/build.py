@@ -107,7 +107,8 @@ def build(root):
     for locale in ("en", "ru"):
         messages = data[f"_locales/{locale}/messages.json"]
         for key in message_ids | {"extensionName", "extensionDescription", "accounts", "allAccounts",
-                                  "expandAccounts", "collapseAccounts", "unreadCount", "totalCount"}:
+                                  "expandAccounts", "collapseAccounts", "unreadCount", "totalCount",
+                                  "newMessages"}:
             require(isinstance(messages[key]["message"], str) and bool(messages[key]["message"]))
     output_dir = root / "dist"
     require(not output_dir.is_symlink())
