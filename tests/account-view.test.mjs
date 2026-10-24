@@ -363,13 +363,15 @@ test("All Accounts shows new mail only while collapsed and some account has it",
   assert.equal(items[1].classList.contains("accountpane-new-messages"), true);
 });
 
-test("every row carries a decorative star after its icon", () => {
+test("every row carries a decorative star immediately before its icon", () => {
   const f = fixture();
   f.view.render(accounts, null);
   for (const item of treeItems(f)) {
     const children = row(item).children;
     const icon = children.findIndex(node => node.getAttribute("class") === "accountpane-icon");
-    const star = children[icon + 1];
+    // Native folder rows put .new-icon before .icon; the margins rely on it.
+    assert.ok(icon > 0);
+    const star = children[icon - 1];
     assert.equal(star.getAttribute("class"), "accountpane-new-star");
     assert.equal(star.getAttribute("aria-hidden"), "true");
     assert.equal(star.textContent, "");

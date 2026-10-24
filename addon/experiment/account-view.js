@@ -105,12 +105,12 @@ var AccountPaneView = (() => {
         ownRow.append(disclosure);
       }
       const kind = root ? "all" : account.type === "none" || account.local ? "monitor" : "cloud";
-      ownRow.append(createSvg(document, ICON_PATHS[kind], "accountpane-icon", kind));
-      // Native folder rows overlay a sparkle on the icon; CSS shows it on new mail.
+      // Native folder rows put the sparkle before the icon; with its negative
+      // margins the icon overlaps it, leaving it at the icon's top-left corner.
       const star = document.createElement("span");
       star.className = "accountpane-new-star";
       star.setAttribute("aria-hidden", "true");
-      ownRow.append(star);
+      ownRow.append(star, createSvg(document, ICON_PATHS[kind], "accountpane-icon", kind));
       const name = document.createElement("span");
       name.className = "accountpane-name";
       name.textContent = account.name;
