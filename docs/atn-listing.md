@@ -41,6 +41,8 @@ Features:
 - Full keyboard navigation.
 - English and Russian interface.
 
+For a matching Postbox-like appearance, see the companion theme Tangaroa: https://addons.thunderbird.net/thunderbird/addon/tangaroa/
+
 Why the install prompt asks for full access: AccountPane uses Thunderbird's Experiment API, because there is no WebExtension API for changing the folder pane. Thunderbird shows the same "full, unrestricted access" prompt for every Experiment add-on. AccountPane reads account and folder metadata, reorders accounts when you drag them and stores the selected account locally. It does not read message bodies or passwords, makes no network requests and sends no telemetry. The source code is open and the XPI build is reproducible.
 
 Requires Thunderbird 157 or newer. Beta: checked on Thunderbird 157–158 on macOS and 158 on Windows 11. Independent project, not affiliated with Thunderbird or Postbox.
@@ -58,6 +60,8 @@ AccountPane добавляет отдельный список аккаунто�
 - Штатное контекстное меню аккаунта по правому клику.
 - Полное управление с клавиатуры.
 - Интерфейс на английском и русском.
+
+Для похожего на Postbox оформления есть тема-компаньон Tangaroa: https://addons.thunderbird.net/thunderbird/addon/tangaroa/
 
 Почему при установке запрашивается полный доступ: AccountPane использует Experiment API, потому что штатного WebExtension-интерфейса для изменения панели папок нет. Thunderbird показывает одинаковый запрос «полный, неограниченный доступ» для любого Experiment-дополнения. AccountPane читает метаданные аккаунтов и папок, меняет порядок аккаунтов при перетаскивании и хранит выбранный аккаунт локально. Он не читает содержимое писем и пароли, не выполняет сетевых запросов и не отправляет телеметрию. Исходный код открыт, сборка XPI воспроизводима.
 
