@@ -9,7 +9,7 @@ below remain the last natively verified install (Thunderbird 158.0, macOS).**
   Virtual folders; the view shows Thunderbird's new-mail star on account rows,
   and on collapsed All Accounts when any account has it.
 - All automated tests pass (194/194).
-- Two builds are byte-identical, SHA-256 `024e149799f939f65d3394a63e1e2a446fffbf9a06f471f1738ec7f8a2cd07b0` (after the NewMessages bool-listener fix).
+- Two builds are byte-identical, SHA-256 `1e29d848edfdd65399cc67b1d3bc1bf1928709b345478754c033a4cbe381c8aa` (after the listener and star-placement fixes).
   (`dist/accountpane-0.1.10.xpi`).
 - Native check: pending (user, macOS).
 
