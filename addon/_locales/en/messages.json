@@ -7,5 +7,16 @@
   "collapseAccounts": { "message": "Collapse accounts" },
   "unreadCount": { "message": "Unread messages: {count}" },
   "totalCount": { "message": "Total messages: {count}" },
-  "newMessages": { "message": "new messages" }
+  "newMessages": { "message": "new messages" },
+  "newAccountGroup": { "message": "New Account Group…" },
+  "renameGroup": { "message": "Rename…" },
+  "deleteGroup": { "message": "Delete" },
+  "openInNewTab": { "message": "Open in New Tab" },
+  "openInNewWindow": { "message": "Open in New Window" },
+  "moveToGroup": { "message": "Move to Group" },
+  "newGroupPromptTitle": { "message": "New Account Group" },
+  "renameGroupPromptTitle": { "message": "Rename Account Group" },
+  "groupNamePrompt": { "message": "Group name:" },
+  "expandGroup": { "message": "Expand {name}" },
+  "collapseGroup": { "message": "Collapse {name}" }
 }

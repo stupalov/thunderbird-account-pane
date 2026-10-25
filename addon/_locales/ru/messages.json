@@ -7,5 +7,16 @@
   "collapseAccounts": { "message": "Свернуть аккаунты" },
   "unreadCount": { "message": "Непрочитанных сообщений: {count}" },
   "totalCount": { "message": "Всего сообщений: {count}" },
-  "newMessages": { "message": "есть новые письма" }
+  "newMessages": { "message": "есть новые письма" },
+  "newAccountGroup": { "message": "Новая группа аккаунтов…" },
+  "renameGroup": { "message": "Переименовать…" },
+  "deleteGroup": { "message": "Удалить" },
+  "openInNewTab": { "message": "Открыть в новой вкладке" },
+  "openInNewWindow": { "message": "Открыть в новом окне" },
+  "moveToGroup": { "message": "Переместить в группу" },
+  "newGroupPromptTitle": { "message": "Новая группа аккаунтов" },
+  "renameGroupPromptTitle": { "message": "Переименовать группу аккаунтов" },
+  "groupNamePrompt": { "message": "Название группы:" },
+  "expandGroup": { "message": "Развернуть «{name}»" },
+  "collapseGroup": { "message": "Свернуть «{name}»" }
 }

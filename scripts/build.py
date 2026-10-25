@@ -109,7 +109,9 @@ def build(root):
         messages = data[f"_locales/{locale}/messages.json"]
         for key in message_ids | {"extensionName", "extensionDescription", "accounts", "allAccounts",
                                   "expandAccounts", "collapseAccounts", "unreadCount", "totalCount",
-                                  "newMessages"}:
+                                  "newMessages", "newAccountGroup", "renameGroup", "deleteGroup",
+                                  "openInNewTab", "openInNewWindow", "moveToGroup", "newGroupPromptTitle",
+                                  "renameGroupPromptTitle", "groupNamePrompt", "expandGroup", "collapseGroup"}:
             require(isinstance(messages[key]["message"], str) and bool(messages[key]["message"]))
     output_dir = root / "dist"
     require(not output_dir.is_symlink())

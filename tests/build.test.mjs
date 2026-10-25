@@ -122,3 +122,18 @@ test("build rejects malformed JSON, unsafe manifest references, changed icon pat
     } finally { f.dispose(); }
   }
 });
+
+test("build requires every account-group locale label in en and ru", () => {
+  for (const locale of ["en", "ru"]) {
+    for (const key of ["newAccountGroup", "renameGroup", "deleteGroup", "openInNewTab", "openInNewWindow", "moveToGroup",
+      "newGroupPromptTitle", "renameGroupPromptTitle", "groupNamePrompt", "expandGroup", "collapseGroup"]) {
+      const f = fixture();
+      try {
+        const file = join(f.root, `addon/_locales/${locale}/messages.json`), messages = JSON.parse(readFileSync(file));
+        assert.ok(messages[key], `${locale}:${key}`); delete messages[key]; writeFileSync(file, JSON.stringify(messages));
+        const result = f.run(); assert.notEqual(result.status, 0, `${locale}:${key}`);
+        assert.match(result.stderr, /ACCOUNTPANE_BUILD_INVALID_INPUT/);
+      } finally { f.dispose(); }
+    }
+  }
+});
