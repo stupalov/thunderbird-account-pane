@@ -16,6 +16,7 @@
   ],
   "background": {
     "scripts": [
+      "lib/groups.js",
       "background.js"
     ]
   },

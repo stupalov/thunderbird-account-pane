@@ -2,26 +2,57 @@
 var AccountPaneStorage = (() => {
   const object = value => value && typeof value === "object" && !Array.isArray(value);
   const id = value => typeof value === "string" && value.length > 0;
-  function normalize(value) {
-    const source = object(value) ? value : {};
-    return { version: 1, selectedAccountId: id(source.selectedAccountId) ? source.selectedAccountId : null,
-      accountsExpanded: typeof source.accountsExpanded === "boolean" ? source.accountsExpanded : true,
-      lastFolders: Object.fromEntries(Object.entries(object(source.lastFolders) ? source.lastFolders : {})
-        .filter(([key, uri]) => id(key) && id(uri))) };
-  }
+  const normalize = value => AccountPaneGroups.normalize(value);
+  const text = value => typeof value === "string";
   function copyPatch(value) {
     const patch = {};
-    if (object(value) && Object.hasOwn(value, "selectedAccountId") &&
-        (value.selectedAccountId === null || id(value.selectedAccountId))) {
-      patch.selectedAccountId = value.selectedAccountId;
+    if (!object(value)) return patch;
+    for (const key of ["selectedAccountId", "selectedGroupId"]) {
+      if (Object.hasOwn(value, key) && (value[key] === null || id(value[key]))) patch[key] = value[key];
     }
-    if (object(value) && typeof value.accountsExpanded === "boolean") {
-      patch.accountsExpanded = value.accountsExpanded;
+    if (typeof value.accountsExpanded === "boolean") patch.accountsExpanded = value.accountsExpanded;
+    const { lastFolder: f, groupExpanded: e, createGroup: c, renameGroup: r, deleteGroup: d,
+      moveAccount: m, pruneMembership: p } = value;
+    if (object(f) && id(f.accountId) && id(f.uri)) patch.lastFolder = { accountId: f.accountId, uri: f.uri };
+    if (object(e) && id(e.groupId) && typeof e.expanded === "boolean") {
+      patch.groupExpanded = { groupId: e.groupId, expanded: e.expanded };
     }
-    if (object(value?.lastFolder) && id(value.lastFolder.accountId) && id(value.lastFolder.uri)) {
-      patch.lastFolder = { accountId: value.lastFolder.accountId, uri: value.lastFolder.uri };
+    if (object(c) && id(c.groupId) && text(c.name)) {
+      patch.createGroup = { groupId: c.groupId, name: c.name, ...(id(c.accountId) ? { accountId: c.accountId } : {}) };
+    }
+    if (object(r) && id(r.groupId) && text(r.name)) patch.renameGroup = { groupId: r.groupId, name: r.name };
+    if (object(d) && id(d.groupId)) patch.deleteGroup = { groupId: d.groupId };
+    if (object(m) && id(m.accountId) && id(m.groupId)) patch.moveAccount = { accountId: m.accountId, groupId: m.groupId };
+    if (object(p) && Array.isArray(p.accountIds) && p.accountIds.every(id)) {
+      patch.pruneMembership = { accountIds: [...p.accountIds] };
     }
     return patch;
+  }
+  // Pure group operations in a fixed order, then selection and history.
+  function apply(settings, patch) {
+    const G = AccountPaneGroups;
+    let next = normalize(settings);
+    if (patch.pruneMembership) next = G.pruneMembership(next, patch.pruneMembership.accountIds);
+    if (patch.createGroup) {
+      next = G.createGroup(next, patch.createGroup.groupId, patch.createGroup.name, patch.createGroup.accountId ?? null);
+    }
+    if (patch.renameGroup) next = G.renameGroup(next, patch.renameGroup.groupId, patch.renameGroup.name);
+    if (patch.deleteGroup) next = G.deleteGroup(next, patch.deleteGroup.groupId);
+    if (patch.moveAccount) next = G.moveAccount(next, patch.moveAccount.accountId, patch.moveAccount.groupId);
+    if (Object.hasOwn(patch, "accountsExpanded")) next = G.setGroupExpanded(next, G.DEFAULT_ID, patch.accountsExpanded);
+    if (patch.groupExpanded) next = G.setGroupExpanded(next, patch.groupExpanded.groupId, patch.groupExpanded.expanded);
+    // A non-null selection of one kind clears the other.
+    for (const [key, other] of [["selectedGroupId", "selectedAccountId"], ["selectedAccountId", "selectedGroupId"]]) {
+      if (Object.hasOwn(patch, key)) {
+        next[key] = patch[key];
+        if (patch[key] !== null) next[other] = null;
+      }
+    }
+    if (patch.lastFolder) {
+      // Computed property preserves ordinary account keys such as __proto__.
+      next.lastFolders = { ...next.lastFolders, [patch.lastFolder.accountId]: patch.lastFolder.uri };
+    }
+    return normalize(next);
   }
   function createWriter(storage, initialSettings) {
     let current = normalize(initialSettings);
@@ -29,13 +60,7 @@ var AccountPaneStorage = (() => {
     function save(value) {
       const patch = copyPatch(value);
       const operation = chain.then(async () => {
-        const next = normalize(current);
-        if (Object.hasOwn(patch, "selectedAccountId")) next.selectedAccountId = patch.selectedAccountId;
-        if (Object.hasOwn(patch, "accountsExpanded")) next.accountsExpanded = patch.accountsExpanded;
-        if (patch.lastFolder) {
-          // Computed property preserves ordinary account keys such as __proto__.
-          next.lastFolders = { ...next.lastFolders, [patch.lastFolder.accountId]: patch.lastFolder.uri };
-        }
+        const next = apply(current, patch);
         try {
           await storage.set({ settings: next });
         } catch {

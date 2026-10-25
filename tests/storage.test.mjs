@@ -3,14 +3,19 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import vm from "node:vm";
-import { loadScript } from "./load-script.mjs";
+import { loadScripts } from "./load-script.mjs";
 const path = fileURLToPath(new URL("../addon/background.js", import.meta.url));
+const groupsPath = fileURLToPath(new URL("../addon/lib/groups.js", import.meta.url));
 const plain = value => JSON.parse(JSON.stringify(value));
+const empty = { version: 2, selectedAccountId: null, selectedGroupId: null, collapsedGroups: [],
+  lastFolders: {}, defaultGroupName: null, groups: [], membership: {} };
 const tick = () => new Promise(setImmediate);
 function storageModule(logs = []) {
   assert.ok(existsSync(path), "storage implementation must exist");
-  return loadScript(path, "AccountPaneStorage", { console: { error: code => logs.push(code) } });
+  return loadScripts([groupsPath, path], "AccountPaneStorage", { console: { error: code => logs.push(code) } });
 }
+const saver = (initial, writes = []) => { const writer = storageModule().createWriter(
+  { async set(v) { writes.push(plain(v.settings)); } }, initial); return { save: p => writer.save(p).then(plain), writes }; };
 test("queued writes preserve latest account and both folder histories", async () => {
   let release; const first = new Promise(r => { release = r; }); const writes = [];
   const storage = { async set(value) { if (!writes.length) { writes.push(plain(value)); await first; }
@@ -20,7 +25,7 @@ test("queued writes preserve latest account and both folder histories", async ()
   const a = writer.save({ selectedAccountId: "a", lastFolder: { accountId: "a", uri: "fixture://a/one" } });
   const b = writer.save({ selectedAccountId: "b", lastFolder: { accountId: "b", uri: "fixture://b/two" } });
   await tick(); assert.equal(writes.length, 1); release(); await writer.flush(); await Promise.all([a, b]);
-  assert.deepEqual(storage.value, { version: 1, selectedAccountId: "b", accountsExpanded: true,
+  assert.deepEqual(storage.value, { ...empty, selectedAccountId: "b",
     lastFolders: { a: "fixture://a/one", b: "fixture://b/two" } });
   assert.deepEqual(initial.lastFolders, {});
 });
@@ -38,15 +43,15 @@ test("caller mutation and malformed initial settings cannot introduce arbitrary 
     { version: 2, selectedAccountId: 7, lastFolders: { a: 42, b: "fixture://b/old" }, password: "ignored" });
   const patch = { lastFolder: { accountId: "a", uri: "fixture://a/one" }, arbitrary: "ignored" };
   const operation = writer.save(patch); patch.lastFolder.uri = "fixture://a/mutated"; await operation;
-  assert.deepEqual(writes, [{ settings: { version: 1, selectedAccountId: null, accountsExpanded: true,
+  assert.deepEqual(writes, [{ settings: { ...empty,
     lastFolders: { b: "fixture://b/old", a: "fixture://a/one" } } }]);
 });
 test("expansion defaults true for legacy or invalid settings and accepts only boolean patches", async () => {
   const storage = storageModule();
   assert.deepEqual(plain(storage.normalize({ selectedAccountId: null, lastFolders: {} })),
-    { version: 1, selectedAccountId: null, accountsExpanded: true, lastFolders: {} });
-  assert.equal(storage.normalize({ accountsExpanded: false }).accountsExpanded, false);
-  assert.equal(storage.normalize({ accountsExpanded: "false" }).accountsExpanded, true);
+    empty);
+  assert.deepEqual(plain(storage.normalize({ accountsExpanded: false }).collapsedGroups), ["default"]);
+  assert.deepEqual(plain(storage.normalize({ accountsExpanded: "false" }).collapsedGroups), []);
   assert.deepEqual(plain(storage.copyPatch({ accountsExpanded: false, arbitrary: true })),
     { accountsExpanded: false });
   assert.deepEqual(plain(storage.copyPatch({ accountsExpanded: 0 })), {});
@@ -54,7 +59,7 @@ test("expansion defaults true for legacy or invalid settings and accepts only bo
   const writer = storage.createWriter({ async set(value) { writes.push(plain(value.settings)); } },
     { selectedAccountId: null, accountsExpanded: true, lastFolders: {} });
   await writer.save({ accountsExpanded: false });
-  assert.deepEqual(writes, [{ version: 1, selectedAccountId: null, accountsExpanded: false, lastFolders: {} }]);
+  assert.deepEqual(writes, [{ ...empty, collapsedGroups: ["default"] }]);
 });
 function backgroundFixture({ rejectBroadcast = false, readFails = false } = {}) {
   storageModule(); let listener, releaseRead, releaseBroadcast; const events = [], logs = [];
@@ -69,7 +74,8 @@ function backgroundFixture({ rejectBroadcast = false, readFails = false } = {}) 
     async settingsChanged(settings) { events.push(["broadcast", plain(settings)]); broadcasts++;
       if (rejectBroadcast && broadcasts === 1) throw Error("private");
       if (!rejectBroadcast && broadcasts === 1) await new Promise(r => { releaseBroadcast = r; }); } } };
-  vm.runInNewContext(readFileSync(path, "utf8"), { browser, console: { error: code => logs.push(code) } });
+  const scope = vm.createContext({ browser, console: { error: code => logs.push(code) } });
+  for (const file of [groupsPath, path]) vm.runInContext(readFileSync(file, "utf8"), scope);
   return { events, logs, fire: patch => listener(patch), releaseRead: () => releaseRead(), releaseBroadcast: () => releaseBroadcast() };
 }
 test("background listens before read/start and awaits every successful snapshot in persistence order", async () => {
@@ -91,6 +97,60 @@ test("broadcast failure rejects its listener promise and following snapshot stil
 test("storage read failure starts with safe defaults and fixed diagnostic", async () => {
   const f = backgroundFixture({ readFails: true }); f.releaseRead(); await tick();
   assert.deepEqual(f.events.find(v => Array.isArray(v) && v[0] === "start")[1],
-    { version: 1, selectedAccountId: null, accountsExpanded: true, lastFolders: {} });
+    empty);
   assert.deepEqual(f.logs, ["ACCOUNTPANE_STORAGE_READ_FAILED"]);
+});
+test("writer migrates v1 snapshot on first save", async () => {
+  const w = saver({ accountsExpanded: false, selectedAccountId: "a" });
+  await w.save({ lastFolder: { accountId: "a", uri: "fixture://a/one" } });
+  assert.deepEqual(w.writes, [{ ...empty, selectedAccountId: "a", collapsedGroups: ["default"],
+    lastFolders: { a: "fixture://a/one" } }]);
+});
+test("group patches apply serially and broadcast the full snapshot", async () => {
+  const w = saver(empty);
+  const results = [await w.save({ createGroup: { groupId: "g-1", name: "Work", accountId: "a" } }),
+    await w.save({ renameGroup: { groupId: "g-1", name: "Job" } }),
+    await w.save({ moveAccount: { accountId: "b", groupId: "g-1" } })];
+  assert.deepEqual(results, w.writes);
+  assert.deepEqual(results[2].groups, [{ id: "g-1", name: "Job" }]);
+  assert.deepEqual(results[2].membership, { a: "g-1", b: "g-1" });
+});
+test("deleteGroup returns accounts to default and clears its selection", async () => {
+  const w = saver({ ...empty, groups: [{ id: "g-1", name: "Work" }], membership: { a: "g-1" }, selectedGroupId: "g-1" });
+  const r = await w.save({ deleteGroup: { groupId: "g-1" } });
+  assert.deepEqual([r.groups, r.membership, r.selectedGroupId], [[], {}, null]);
+});
+test("selection patches are mutually exclusive", async () => {
+  const w = saver({ ...empty, groups: [{ id: "g-1", name: "Work" }] });
+  assert.equal((await w.save({ selectedGroupId: "g-1" })).selectedGroupId, "g-1");
+  const r = await w.save({ selectedAccountId: "a" });
+  assert.deepEqual([r.selectedAccountId, r.selectedGroupId], ["a", null]);
+  const g = await w.save({ selectedGroupId: "g-1" });
+  assert.deepEqual([g.selectedAccountId, g.selectedGroupId], [null, "g-1"]);
+  const n = await w.save({ selectedAccountId: null, selectedGroupId: null });
+  assert.deepEqual([n.selectedAccountId, n.selectedGroupId], [null, null]);
+});
+test("legacy accountsExpanded patch toggles the default group", async () => {
+  const w = saver(empty);
+  assert.deepEqual((await w.save({ accountsExpanded: false })).collapsedGroups, ["default"]);
+  assert.deepEqual((await w.save({ accountsExpanded: true })).collapsedGroups, []);
+  const g = await w.save({ groupExpanded: { groupId: "default", expanded: false } });
+  assert.deepEqual(g.collapsedGroups, ["default"]);
+});
+test("pruneMembership drops absent keys and keeps hidden ones", async () => {
+  const w = saver({ ...empty, groups: [{ id: "g-1", name: "Work" }],
+    membership: { a: "g-1", hidden: "g-1", gone: "g-1" } });
+  const r = await w.save({ pruneMembership: { accountIds: ["a", "hidden"] } });
+  assert.deepEqual(r.membership, { a: "g-1", hidden: "g-1" });
+});
+test("copyPatch ignores malformed group patches", () => {
+  const storage = storageModule();
+  for (const bad of [{ createGroup: { groupId: 7 } }, { moveAccount: { accountId: "" } },
+    { pruneMembership: { accountIds: "a" } }, { renameGroup: { groupId: "g" } }, { deleteGroup: {} },
+    { groupExpanded: { groupId: "g", expanded: "no" } }, { selectedGroupId: 3 }]) {
+    assert.deepEqual(plain(storage.copyPatch(bad)), {});
+  }
+  assert.deepEqual(plain(storage.copyPatch({ createGroup: { groupId: "g-1", name: "W", extra: 1 },
+    pruneMembership: { accountIds: ["a"] } })),
+    { createGroup: { groupId: "g-1", name: "W" }, pruneMembership: { accountIds: ["a"] } });
 });

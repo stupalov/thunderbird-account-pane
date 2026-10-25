@@ -27,8 +27,11 @@ test("build emits only reviewed addon files and validates archived manifest", ()
       "experiment/account-pane.css", "experiment/account-view.js", "experiment/controller.js", "experiment/implementation.js",
       "experiment/lifecycle.js", "experiment/schema.json", "experiment/thunderbird-adapter.js", "experiment/tree-filter.js",
       "icons/accountpane-128.png", "icons/accountpane-16.png", "icons/accountpane-32.png",
-      "icons/accountpane-48.png", "icons/accountpane-64.png", "lib/model.js", "manifest.json"]);
-    assert.equal(artifact.files.length, 18);
+      "icons/accountpane-48.png", "icons/accountpane-64.png", "lib/groups.js", "lib/model.js", "manifest.json"]);
+    assert.equal(artifact.files.length, 19);
+    assert.deepEqual(artifact.manifest.background.scripts, ["lib/groups.js", "background.js"]);
+    const props = JSON.parse(readFileSync(join(f.root, "addon/experiment/schema.json")))[0].types[0].properties;
+    for (const key of ["selectedGroupId", "collapsedGroups", "defaultGroupName", "groups", "membership"]) assert.ok(key in props, key);
     assert.equal(artifact.manifest.version, "0.1.13");
     assert.deepEqual(artifact.manifest.icons, {
       "16": "icons/accountpane-16.png", "32": "icons/accountpane-32.png",

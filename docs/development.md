@@ -17,7 +17,7 @@ No third-party dependencies or npm installation are needed. The builder creates 
 shasum -a 256 dist/accountpane-*.xpi
 ```
 
-The package contains a fixed allowlist of 18 add-on files, including five PNG icon sizes. The source SVG, documentation, tests, profiles, mail, and secrets are not packaged. Unchanged inputs produce the same bytes across repeated builds. Generated XPI files are not source-controlled.
+The package contains a fixed allowlist of 19 add-on files, including five PNG icon sizes. The source SVG, documentation, tests, profiles, mail, and secrets are not packaged. Unchanged inputs produce the same bytes across repeated builds. Generated XPI files are not source-controlled.
 
 Keep the manifest, package metadata, builder's version validation/output path, and build tests in sync when changing versions. The add-on ID is `accountpane@stupalov.github.io`.
 

@@ -11,6 +11,7 @@ import zipfile
 ALLOWED_FILES = (
     "manifest.json",
     "background.js",
+    "lib/groups.js",
     "lib/model.js",
     "experiment/schema.json",
     "experiment/implementation.js",
@@ -75,7 +76,7 @@ def build(root):
     require(set(manifest) == {"manifest_version", "name", "version", "icons", "default_locale",
                               "description", "permissions", "background",
                               "browser_specific_settings", "experiment_apis"})
-    require(manifest["background"] == {"scripts": ["background.js"]})
+    require(manifest["background"] == {"scripts": ["lib/groups.js", "background.js"]})
     require(manifest["manifest_version"] == 2 and manifest["version"] == "0.1.13")
     icons = {str(size): f"icons/accountpane-{size}.png" for size in (16, 32, 48, 64, 128)}
     require(manifest["icons"] == icons and all(path in inputs for path in icons.values()))

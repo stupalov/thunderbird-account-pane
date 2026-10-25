@@ -7,10 +7,16 @@
         "id": "Settings",
         "type": "object",
         "properties": {
-          "version": { "type": "integer", "minimum": 1, "maximum": 1 },
+          "version": { "type": "integer", "minimum": 1, "maximum": 2 },
           "selectedAccountId": { "choices": [{ "type": "string" }, { "type": "null" }] },
+          "selectedGroupId": { "optional": true, "choices": [{ "type": "string" }, { "type": "null" }] },
           "accountsExpanded": { "optional": true, "type": "boolean" },
-          "lastFolders": { "type": "object", "additionalProperties": { "type": "string" } }
+          "collapsedGroups": { "optional": true, "type": "array", "items": { "type": "string" } },
+          "lastFolders": { "type": "object", "additionalProperties": { "type": "string" } },
+          "defaultGroupName": { "optional": true, "choices": [{ "type": "string" }, { "type": "null" }] },
+          "groups": { "optional": true, "type": "array", "items": { "type": "object", "properties": {
+            "id": { "type": "string" }, "name": { "type": "string" } } } },
+          "membership": { "optional": true, "type": "object", "additionalProperties": { "type": "string" } }
         }
       },
       {
@@ -18,7 +24,20 @@
         "type": "object",
         "properties": {
           "selectedAccountId": { "optional": true, "choices": [{ "type": "string" }, { "type": "null" }] },
+          "selectedGroupId": { "optional": true, "choices": [{ "type": "string" }, { "type": "null" }] },
           "accountsExpanded": { "optional": true, "type": "boolean" },
+          "groupExpanded": { "optional": true, "type": "object", "properties": {
+            "groupId": { "type": "string" }, "expanded": { "type": "boolean" } } },
+          "createGroup": { "optional": true, "type": "object", "properties": {
+            "groupId": { "type": "string" }, "name": { "type": "string" },
+            "accountId": { "optional": true, "type": "string" } } },
+          "renameGroup": { "optional": true, "type": "object", "properties": {
+            "groupId": { "type": "string" }, "name": { "type": "string" } } },
+          "deleteGroup": { "optional": true, "type": "object", "properties": { "groupId": { "type": "string" } } },
+          "moveAccount": { "optional": true, "type": "object", "properties": {
+            "accountId": { "type": "string" }, "groupId": { "type": "string" } } },
+          "pruneMembership": { "optional": true, "type": "object", "properties": {
+            "accountIds": { "type": "array", "items": { "type": "string" } } } },
           "lastFolder": {
             "optional": true,
             "type": "object",
