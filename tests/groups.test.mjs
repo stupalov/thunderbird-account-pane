@@ -117,6 +117,9 @@ test("pruneMembership drops absent keys and keeps hidden ones", () => {
   const pruned = groups.pruneMembership(s, ["a", "hidden"]);
   assert.deepEqual(plain(pruned.membership), { a: "g-1", hidden: "g-1" });
   assert.deepEqual(plain(pruned.lastFolders), { a: "fixture://a/x" });
+  for (const bad of [undefined, "abc", null, {}]) {
+    assert.deepEqual(plain(groups.pruneMembership(s, bad)), plain(groups.normalize(s)));
+  }
 });
 
 test("view puts each visible account in exactly one group in native order", () => {

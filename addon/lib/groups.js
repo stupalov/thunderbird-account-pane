@@ -92,7 +92,10 @@ var AccountPaneGroups = {
   // accountIds is the full account list: hidden accounts keep their group.
   pruneMembership(settings, accountIds) {
     const s = this.normalize(settings);
-    const keep = new Set(accountIds);
+    if (!Array.isArray(accountIds)) {
+      return s;
+    }
+    const keep = new Set(accountIds.filter(id => typeof id === "string"));
     const only = object => Object.fromEntries(Object.entries(object).filter(([key]) => keep.has(key)));
     return { ...s, membership: only(s.membership), lastFolders: only(s.lastFolders) };
   },
