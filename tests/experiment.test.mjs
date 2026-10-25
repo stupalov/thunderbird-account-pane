@@ -16,9 +16,9 @@ function fixture({ failFilter = false, delayCSS = false, failController = false,
     dispose: () => events.push("adapter-dispose") };
   const filter = { dispose: () => events.push("filter-dispose") };
   const view = { dispose: () => events.push("view-dispose") };
-  let follow, select, save, expand, contextMenu, reorder;
+  let follow, select, save, expand, contextMenu, reorder, move;
   const helpers = {
-    AccountPaneModel: {},
+    AccountPaneModel: {}, AccountPaneGroups: {},
     AccountPaneAdapter: { create(options) { assert.equal(options.window, pane);
       assert.equal(options.FolderUtils, FolderUtils); assert.equal(options.MailServices, MailServices);
       assert.equal(options.Ci, Ci); assert.equal(options.Services, Services); events.push("adapter"); return adapter; } },
@@ -26,15 +26,18 @@ function fixture({ failFilter = false, delayCSS = false, failController = false,
       assert.equal(options.labels.allAccounts, "All Accounts"); assert.equal(options.cssText, "fixture CSS");
       assert.equal(options.labels.expandAccounts, "Expand accounts");
       assert.equal(options.labels.collapseAccounts, "Collapse accounts");
-      select = options.onSelect; expand = options.onExpandedChanged; contextMenu = options.onContextMenu; reorder = options.onReorder; return view; } },
+      select = options.onSelect; expand = options.onExpandedChanged; contextMenu = options.onContextMenu; reorder = options.onReorder;
+      move = options.onMove; return view; } },
     AccountPaneTreeFilter: { attach(options) { events.push("filter");
       assert.equal(options.accountForRow({ account: "a" }), "a"); follow = options.followTarget;
       if (failFilter) throw Error("private"); return filter; } },
     AccountPaneController: { create(options) { events.push("controller"); save = options.save;
+      assert.equal(options.groups, helpers.AccountPaneGroups); assert.equal(options.labels.allAccounts, "All Accounts");
       if (failController) throw Error("private fixture://uri");
       const controller = { dispose: () => events.push("controller-dispose"),
-        selectAccount: id => events.push(["select", id]), followFolder: id => events.push(["follow", id]),
-        setAccountsExpanded: value => events.push(["expanded", value]),
+        select: selection => events.push(["select", selection]), followFolder: id => events.push(["follow", id]),
+        setGroupExpanded: (...args) => events.push(["expanded", ...args]),
+        moveAccount: (...args) => events.push(["move", ...args]),
         updateSettings: value => events.push(["settings", value]) }; controllers.push(controller); return controller; } },
     AccountPaneLifecycle: { create(options) { attach = options.attachPane;
       return { start() { events.push("start"); }, dispose() { events.push("lifecycle-dispose"); disposer?.(); } }; } }
@@ -74,7 +77,7 @@ function fixture({ failFilter = false, delayCSS = false, failController = false,
   return { implementation, api, events, logs, loaded, settings, controllers,
     attach() { disposer = attach(pane); return disposer; }, select: id => select(id), follow: id => follow(id),
     expand: (...args) => expand(...args), contextMenu: (...args) => contextMenu(...args),
-    reorder: (...args) => reorder(...args),
+    reorder: (...args) => reorder(...args), move: (...args) => move(...args),
     save: patch => save(patch), completeCSS: () => cssCallback({ available: () => 11, close() {} }, 0),
     listen: fire => register(fire), scope };
 }
@@ -82,19 +85,21 @@ test("Experiment isolates helpers and wires controller adapter filter view and s
   const f = fixture(); const result = Promise.resolve("ack"); const patches = [];
   f.listen({ async(patch) { patches.push(patch); return result; } });
   await f.api.start(f.settings); await f.api.start(f.settings); f.attach();
-  assert.equal(f.events.filter(v => v === "start").length, 1); assert.equal(f.loaded.length, 6);
+  assert.equal(f.events.filter(v => v === "start").length, 1); assert.equal(f.loaded.length, 7);
   assert.ok(f.loaded.every(v => v.scope === f.loaded[0].scope)); assert.equal(f.scope.AccountPaneModel, undefined);
   f.select({ type: "account", id: "a" }); f.follow(null); f.expand("default", false);
   const menuEvent = { button: 2 }, anchor = {};
   f.contextMenu({ type: "account", id: "a" }, menuEvent, anchor);
   assert.deepEqual(f.events.at(-1), ["context", "a", menuEvent, anchor]);
   const before = f.events.length;
-  f.contextMenu({ type: "group", id: "default" }, menuEvent, anchor); f.expand("g-1", true);
-  f.select({ type: "group", id: "default" });
-  assert.deepEqual(f.events.slice(before), [["select", null]]);
-  assert.ok(f.events.some(v => Array.isArray(v) && v[0] === "select" && v[1] === "a"));
+  const group = { type: "group", id: "g-1" }, placement = { targetId: "b", before: true };
+  f.contextMenu(group, menuEvent, anchor); f.expand("g-1", true); f.select(group);
+  f.move("a", "g-1", placement); f.reorder("a", "b", false);
+  assert.deepEqual(f.events.slice(before), [["expanded", "g-1", true], ["select", group],
+    ["move", "a", "g-1", placement], ["reorder", "a", "b", false]]);
+  assert.ok(f.events.some(v => Array.isArray(v) && v[0] === "select" && v[1]?.id === "a"));
   assert.ok(f.events.some(v => Array.isArray(v) && v[0] === "follow" && v[1] === null));
-  assert.ok(f.events.some(v => Array.isArray(v) && v[0] === "expanded" && v[1] === false));
+  assert.ok(f.events.some(v => Array.isArray(v) && v[0] === "expanded" && v[1] === "default" && v[2] === false));
   assert.equal(await f.save({ selectedAccountId: "a" }), "ack"); assert.equal(patches.length, 1);
   await f.api.settingsChanged({ ...f.settings, lastFolders: { a: "fixture://a/one" } });
   assert.equal(f.events.at(-1)[0], "settings");
@@ -102,13 +107,13 @@ test("Experiment isolates helpers and wires controller adapter filter view and s
   assert.deepEqual(f.events.slice(-6), ["lifecycle-dispose", "controller-dispose", "adapter-dispose", "filter-dispose", "view-dispose",
     ["notify", null, "startupcache-invalidate", null]]);
 });
-test("packaged Experiment loads only its six fixed helpers into one isolated scope", async () => {
+test("packaged Experiment loads only its seven fixed helpers into one isolated scope", async () => {
   const root = "jar:file:///fixture/accountpane.xpi!/";
   const f = fixture({ packagedRootURI: root }); f.listen({ async: () => Promise.resolve() });
   await f.api.start(f.settings);
-  assert.equal(f.loaded.length, 6);
+  assert.equal(f.loaded.length, 7);
   assert.ok(f.loaded.every(item => item.url.startsWith(root) && item.scope === f.loaded[0].scope));
-  assert.deepEqual(f.loaded.map(item => item.url.slice(root.length)), ["lib/model.js", "experiment/tree-filter.js",
+  assert.deepEqual(f.loaded.map(item => item.url.slice(root.length)), ["lib/groups.js", "lib/model.js", "experiment/tree-filter.js",
     "experiment/account-view.js", "experiment/controller.js", "experiment/thunderbird-adapter.js", "experiment/lifecycle.js"]);
   assert.equal(f.scope.AccountPaneModel, undefined);
   f.implementation.onShutdown(true);
@@ -148,7 +153,7 @@ test("concurrent startup waits one resource load and uses latest shared history"
   const f = fixture({ delayCSS: true }); f.listen({ async: () => Promise.resolve() });
   const first = f.api.start(f.settings), second = f.api.start(f.settings);
   await f.api.settingsChanged({ ...f.settings, lastFolders: { a: "fixture://a/new" } });
-  f.completeCSS(); await Promise.all([first, second]); assert.equal(f.loaded.length, 6);
+  f.completeCSS(); await Promise.all([first, second]); assert.equal(f.loaded.length, 7);
   assert.equal(f.events.filter(v => v === "start").length, 1); f.attach(); f.implementation.onShutdown(true);
 });
 test("all callers sharing failed startup receive the same generic rejection", async () => {

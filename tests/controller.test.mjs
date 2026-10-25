@@ -8,7 +8,10 @@ const model = loadScript("addon/lib/model.js", "AccountPaneModel");
 const controllerPath = "addon/experiment/controller.js";
 const Controller = existsSync(controllerPath) ? loadScript(controllerPath, "AccountPaneController") : null;
 
-function fixture({ settings = {}, current = null, modes = ["all", "favorite"], canDisplayFolder = () => true, saveResult, trackCounts = false, ensureAllFolders } = {}) {
+const groups = loadScript("addon/lib/groups.js", "AccountPaneGroups");
+const work = { groups: [{ id: "g", name: "Work" }] };
+
+function fixture({ settings = {}, current = null, modes = ["all", "favorite"], canDisplayFolder = () => true, saveResult, trackCounts = false, ensureAllFolders, accountKeys } = {}) {
   const data = makeModelFixture();
   const listeners = { folder: new Set(), accounts: new Set(), modes: new Set(), counts: new Set() };
   const effects = [], saved = [], displayCalls = [];
@@ -24,7 +27,9 @@ function fixture({ settings = {}, current = null, modes = ["all", "favorite"], c
     activeModes: () => modes,
     canDisplayFolder,
     ...(ensureAllFolders ? { ensureAllFolders } : {}),
+    ...(accountKeys ? { listAccountKeys: () => accountKeys() } : {}),
     displayFolder(uri) { displayCalls.push(uri); effects.push(["display", uri]); },
+    reorderAccount(...args) { effects.push(["reorder", ...args]); },
     onFolderChanged: subscribe("folder"), onAccountsChanged: subscribe("accounts"),
     onModesChanged: subscribe("modes"),
     onMessageCountsChanged: subscribe("counts"),
@@ -35,18 +40,24 @@ function fixture({ settings = {}, current = null, modes = ["all", "favorite"], c
     emitModes(value) { modes = value; for (const callback of listeners.modes) { callback(); } }
   };
   assert.ok(Controller?.create, "navigation controller factory must exist");
-  const controller = Controller.create({ adapter, model, settings,
-    filter: { apply(id) { effects.push(["filter", id]); } },
-    view: { setCollapsed(ids) { effects.push(["expanded", !ids.includes("default")]); },
-      render([group], selection, byId) {
-        const ids = group.accountIds;
-        effects.push(["render", selection.type === "account" ? selection.id : null, ids, ids.map(id => byId[id].name)]);
-      },
+  // Controller values come from another VM realm; clone them for deep equality.
+  const plain = value => value == null ? value : structuredClone(value);
+  const controller = Controller.create({ adapter, model, groups, settings, labels: { allAccounts: "All Accounts" },
+    filter: { apply(ids) { effects.push(["filter", plain(ids)]); } },
+    view: { setCollapsed(ids) { effects.push(["collapsed", [...ids]]); },
+      render(list, selection, byId) { effects.push(["render", plain(selection), plain(list), byId]); },
+      focusGroup(id) { effects.push(["focus", id]); },
       updateCounts(snapshot) { if (trackCounts) effects.push(["counts", snapshot.showTotal]); } },
     save(patch) { saved.push(structuredClone(patch)); return saveResult?.(patch); }
   });
-  const selected = () => effects.filter(effect => effect[0] === "render").at(-1)[1];
-  return { controller, adapter, data, listeners, effects, saved, displayCalls, selected };
+  const lastRender = () => effects.filter(effect => effect[0] === "render").at(-1);
+  // Account id, "group:<id>", or null for unrestricted (default marked only while unrestricted).
+  const selected = () => {
+    const [, mark, list] = lastRender();
+    return mark?.type === "account" ? mark.id : !mark || groups.isUnrestricted(list) ? null : `group:${mark.id}`;
+  };
+  const filtered = () => effects.filter(effect => effect[0] === "filter").at(-1)[1];
+  return { controller, adapter, data, listeners, effects, saved, displayCalls, selected, lastRender, filtered };
 }
 
 test("count notifications update badges without filtering, rendering, navigation, or storage", () => {
@@ -91,9 +102,9 @@ test("filter and view switch before native display during rapid a b a navigation
   f.effects.length = 0;
   for (const id of ["a", "b", "a"]) { f.controller.selectAccount(id); }
   assert.deepEqual(f.effects.map(effect => effect.slice(0, 2)), [
-    ["filter", "a"], ["render", "a"], ["display", "fixture://a/archive"],
-    ["filter", "b"], ["render", "b"], ["display", "fixture://b/inbox"],
-    ["filter", "a"], ["render", "a"], ["display", "fixture://a/archive"]
+    ["filter", ["a"]], ["render", { type: "account", id: "a" }], ["display", "fixture://a/archive"],
+    ["filter", ["b"]], ["render", { type: "account", id: "b" }], ["display", "fixture://b/inbox"],
+    ["filter", ["a"]], ["render", { type: "account", id: "a" }], ["display", "fixture://a/archive"]
   ]);
 });
 
@@ -169,7 +180,7 @@ test("initial attach uses current ownership before saved account without navigat
   assert.equal(f.selected(), "b");
   assert.deepEqual(f.displayCalls, []);
   assert.deepEqual(f.saved, []);
-  assert.deepEqual(f.effects.at(-1)[2], ["b", "a", "local", "pop"]);
+  assert.deepEqual(f.lastRender()[2][0].accountIds, ["b", "a", "local", "pop"]);
 });
 
 for (const lastFolders of [{}, { a: "fixture://a/renamed-inbox" }]) {
@@ -239,8 +250,8 @@ test("deleted account clears a stable-key selection and refreshes names", () => 
   f.adapter.emitAccounts();
   assert.equal(f.selected(), null);
   assert.equal(f.displayCalls.length, 1);
-  assert.equal(f.effects.filter(effect => effect[0] === "render").at(-1)[3][0], "Renamed");
-  assert.deepEqual(f.saved.at(-1), { selectedAccountId: null });
+  assert.equal(f.lastRender()[3].b.name, "Renamed");
+  assert.deepEqual(f.saved.at(-1), { selectedGroupId: null, selectedAccountId: null });
 });
 
 for (const cause of ["deleted", "renamed", "missing", "foreign"]) {
@@ -341,7 +352,7 @@ test("native row disappearing during display fails open", () => {
   f.adapter.displayFolder = () => false;
   f.controller.selectAccount("a");
   assert.equal(f.selected(), null);
-  assert.deepEqual(f.saved, [{ selectedAccountId: "a" }, { selectedAccountId: null }]);
+  assert.deepEqual(f.saved, [{ selectedAccountId: "a" }, { selectedGroupId: null, selectedAccountId: null }]);
 });
 
 test("supported mode change with no remaining account rows fails open without reopening history", () => {
@@ -365,7 +376,7 @@ test("controller rolls back earlier subscriptions when later registration fails"
     onAccountsChanged() { remaining++; return () => remaining--; },
     onModesChanged() { throw Error("observer registration failed"); }
   };
-  assert.throws(() => Controller.create({ adapter, model, settings: {},
+  assert.throws(() => Controller.create({ adapter, model, groups, settings: {},
     filter: {}, view: {}, save() {} }), /observer registration failed/);
   assert.equal(remaining, 0);
 });
@@ -481,50 +492,179 @@ test("removed account drops pending history before a new shared snapshot", () =>
 test("legacy settings expand accounts by default while persisted false starts collapsed", () => {
   const legacy = fixture();
   const collapsed = fixture({ settings: { accountsExpanded: false } });
-  assert.deepEqual(legacy.effects[0], ["expanded", true]);
-  assert.deepEqual(collapsed.effects[0], ["expanded", false]);
+  assert.deepEqual(legacy.effects[0], ["collapsed", []]);
+  assert.deepEqual(collapsed.effects[0], ["collapsed", ["default"]]);
   assert.deepEqual(legacy.saved, []);
   assert.deepEqual(collapsed.saved, []);
 });
 
-test("expansion changes persist only the boolean without navigation filtering or history", () => {
-  const f = fixture();
+test("setGroupExpanded saves groupExpanded and updates the view", () => {
+  const f = fixture({ settings: work });
   f.effects.length = 0;
-  f.saved.length = 0;
-  f.displayCalls.length = 0;
-  f.controller.setAccountsExpanded(false);
-  assert.deepEqual(f.effects, [["expanded", false]]);
-  assert.deepEqual(f.saved, [{ accountsExpanded: false }]);
+  f.controller.setGroupExpanded("g", false);
+  f.controller.setGroupExpanded("g", false);
+  assert.deepEqual(f.effects, [["collapsed", ["g"]]]);
+  assert.deepEqual(f.saved, [{ groupExpanded: { groupId: "g", expanded: false } }]);
   assert.deepEqual(f.displayCalls, []);
-  f.controller.setAccountsExpanded(false);
-  assert.deepEqual(f.saved, [{ accountsExpanded: false }]);
+  f.effects.length = 0;
+  // A snapshot written before the local change cannot rewind it; the acknowledging one can.
+  f.controller.updateSettings({ ...work, collapsedGroups: [] });
+  f.controller.updateSettings({ ...work, collapsedGroups: ["g"] });
+  assert.deepEqual(f.effects.filter(effect => effect[0] === "collapsed"), []);
+  f.controller.updateSettings({ ...work, collapsedGroups: [] });
+  assert.deepEqual(f.effects.filter(effect => effect[0] === "collapsed"), [["collapsed", []]]);
 });
 
-test("settings broadcasts cannot overwrite the latest rapid per-pane expansion", () => {
-  const f = fixture();
-  f.controller.setAccountsExpanded(false);
-  f.controller.setAccountsExpanded(true);
-  f.controller.setAccountsExpanded(false);
-  f.effects.length = 0;
-  f.controller.updateSettings({ accountsExpanded: false, lastFolders: {} });
-  f.controller.updateSettings({ accountsExpanded: true, lastFolders: {} });
-  f.controller.updateSettings({ accountsExpanded: false, lastFolders: {} });
-  assert.deepEqual(f.effects, []);
-  f.controller.setAccountsExpanded(false);
-  assert.deepEqual(f.effects, []);
-  f.controller.setAccountsExpanded(true);
-  assert.deepEqual(f.effects, [["expanded", true]]);
-  assert.deepEqual(f.displayCalls, []);
-});
-
-test("failed expansion save does not rewind the current per-pane view", async () => {
-  const f = fixture({ saveResult: patch => patch.accountsExpanded === undefined ? undefined :
-    Promise.reject(Error("storage failed")) });
-  f.controller.setAccountsExpanded(false);
+test("failed expansion save lets the shared snapshot win", async () => {
+  const f = fixture({ settings: work, saveResult: patch => patch.groupExpanded ? Promise.reject(Error("storage failed")) : undefined });
+  f.controller.setGroupExpanded("default", false);
   await new Promise(setImmediate);
   f.effects.length = 0;
-  f.controller.updateSettings({ accountsExpanded: true, lastFolders: {} });
-  assert.deepEqual(f.effects, []);
-  f.controller.setAccountsExpanded(false);
+  f.controller.updateSettings({ ...work, collapsedGroups: [] });
+  assert.deepEqual(f.effects.filter(effect => effect[0] === "collapsed"), [["collapsed", []]]);
+});
+
+test("selecting a group filters to its members and displays its first target", () => {
+  const f = fixture({ settings: { ...work, membership: { a: "g", b: "g" } } });
+  f.effects.length = 0;
+  f.controller.select({ type: "group", id: "g" });
+  assert.deepEqual(f.effects.map(effect => effect.slice(0, 2)), [["filter", ["b", "a"]],
+    ["render", { type: "group", id: "g" }], ["display", "fixture://b/inbox"]]);
+  assert.deepEqual(f.saved, [{ selectedGroupId: "g" }]);
+});
+
+test("selecting the default group while unrestricted is the former All Accounts path", () => {
+  const f = fixture({ settings: work });
+  f.controller.selectAccount("a");
+  f.effects.length = 0; f.saved.length = 0;
+  f.controller.select({ type: "group", id: "default" });
+  assert.deepEqual(f.effects.map(effect => effect.slice(0, 2)), [["filter", null],
+    ["render", { type: "group", id: "default" }]]);
+  assert.deepEqual(f.saved, [{ selectedGroupId: null, selectedAccountId: null }]);
+  assert.equal(f.displayCalls.length, 1);
+});
+
+test("following a folder inside the selected group keeps the group; outside selects the account", () => {
+  const f = fixture({ settings: { ...work, membership: { a: "g", b: "g" } } });
+  f.controller.select({ type: "group", id: "g" });
+  f.saved.length = 0;
+  f.controller.followFolder("a");
+  assert.equal(f.selected(), "group:g");
+  assert.deepEqual(f.saved, []);
+  f.controller.followFolder("local");
+  assert.equal(f.selected(), "local");
+  assert.deepEqual(f.filtered(), ["local"]);
+  assert.equal(f.displayCalls.length, 1);
+});
+
+test("snapshot deleting the selected group falls back to default", () => {
+  const two = { groups: [{ id: "g", name: "Work" }, { id: "h", name: "Home" }], membership: { a: "g", b: "h" } };
+  const f = fixture({ settings: two, current: { accountId: "a", uri: "fixture://a/archive", available: true } });
+  f.controller.select({ type: "group", id: "g" });
+  const displays = f.displayCalls.length;
+  f.controller.updateSettings({ groups: [two.groups[1]], membership: { b: "h" } });
+  assert.equal(f.selected(), "group:default");
+  assert.deepEqual(f.filtered(), ["a", "local", "pop"]);
+  assert.equal(f.displayCalls.length, displays);
+});
+
+test("snapshot moving the open folder's account re-targets inside the group", () => {
+  const f = fixture({ settings: { ...work, membership: { a: "g", b: "g" } },
+    current: { accountId: "a", uri: "fixture://a/archive", available: true } });
+  f.controller.select({ type: "group", id: "g" });
+  assert.equal(f.displayCalls.at(-1), "fixture://a/archive");
+  f.controller.updateSettings({ ...work, membership: { b: "g" } });
+  assert.equal(f.selected(), "group:g");
+  assert.deepEqual(f.filtered(), ["b"]);
+  assert.equal(f.displayCalls.at(-1), "fixture://b/inbox");
+  assert.deepEqual(f.saved.at(-1), { lastFolder: { accountId: "a", uri: "fixture://a/archive" } });
+});
+
+test("first account entering a user group re-filters a pane showing the default group", () => {
+  const f = fixture({ settings: work });
+  f.adapter.emitFolder({ accountId: "a", uri: "fixture://a/archive", available: true });
+  assert.deepEqual(f.lastRender()[1], { type: "group", id: "default" });
+  f.controller.updateSettings({ ...work, membership: { a: "g" } });
+  assert.equal(f.selected(), "group:default");
+  assert.deepEqual(f.filtered(), ["b", "local", "pop"]);
+  assert.equal(f.displayCalls.at(-1), "fixture://b/inbox");
+});
+
+test("startup restores a saved group unless the open folder belongs elsewhere", () => {
+  const settings = { ...work, membership: { a: "g", b: "g" }, selectedGroupId: "g" };
+  const empty = fixture({ settings });
+  const inside = fixture({ settings, current: { accountId: "a", uri: "fixture://a/archive", available: true } });
+  const outside = fixture({ settings, current: { accountId: "local", uri: "fixture://local/saved", available: true } });
+  assert.equal(empty.selected(), "group:g");
+  assert.deepEqual(empty.filtered(), ["b", "a"]);
+  assert.equal(inside.selected(), "group:g");
+  assert.equal(outside.selected(), "local");
+  for (const f of [empty, inside, outside]) {
+    assert.deepEqual(f.displayCalls, []);
+    assert.deepEqual(f.saved, []);
+  }
+});
+
+test("createGroup saves the patch and focuses the group after the snapshot", () => {
+  const f = fixture();
+  assert.equal(f.controller.createGroup("   "), null);
+  const id = f.controller.createGroup("  Work ", "a");
+  assert.match(id, /^g-/);
+  assert.deepEqual(f.saved, [{ createGroup: { groupId: id, name: "Work", accountId: "a" } }]);
+  assert.ok(!f.effects.some(effect => effect[0] === "focus"));
+  const snapshot = { groups: [{ id, name: "Work" }], membership: { a: id } };
+  f.controller.updateSettings(snapshot);
+  f.controller.updateSettings(snapshot);
+  assert.deepEqual(f.effects.filter(effect => effect[0] === "focus"), [["focus", id]]);
+  assert.deepEqual(f.lastRender()[2].map(entry => entry.id), ["default", id]);
+});
+
+test("moveAccount with placement saves membership and reorders", () => {
+  const f = fixture({ settings: work });
+  f.effects.length = 0;
+  f.controller.moveAccount("a", "g", { targetId: "b", before: true });
+  f.controller.moveAccount("b", "default", null);
+  assert.deepEqual(f.saved, [{ moveAccount: { accountId: "a", groupId: "g" } },
+    { moveAccount: { accountId: "b", groupId: "default" } }]);
+  assert.deepEqual(f.effects, [["reorder", "a", "b", true]]);
+});
+
+test("accounts change sends pruneMembership with the full key list", () => {
+  let keys = ["a", "b", "hidden"];
+  const f = fixture({ accountKeys: () => keys });
+  assert.deepEqual(f.saved, [{ pruneMembership: { accountIds: ["a", "b", "hidden"] } }]);
+  f.adapter.emitAccounts();
+  assert.equal(f.saved.length, 1);
+  keys = ["b", "a"];
+  f.adapter.emitAccounts();
+  assert.deepEqual(f.saved.at(-1), { pruneMembership: { accountIds: ["b", "a"] } });
+  for (const value of [[], null, "a"]) {
+    keys = value;
+    f.adapter.emitAccounts();
+  }
+  assert.equal(f.saved.length, 2);
+});
+
+test("groupChoices marks the current group; groupMenu forbids deleting default and reports the open target", () => {
+  const f = fixture({ settings: { ...work, membership: { a: "g" } } });
+  assert.deepEqual(structuredClone(f.controller.groupChoices("a")), [{ id: "default", name: "All Accounts", current: false },
+    { id: "g", name: "Work", current: true }]);
+  const menu = f.controller.groupMenu("default");
+  assert.equal(menu.canDelete, false);
+  assert.equal(menu.name, "All Accounts");
+  assert.equal(menu.openTarget.uri, "fixture://b/inbox");
+  assert.equal(f.controller.groupMenu("g").canDelete, true);
+  assert.equal(f.controller.groupMenu("g").openTarget.uri, "fixture://a/renamed-inbox");
+});
+
+test("rename and delete only save patches; the default group is never deleted", () => {
+  const f = fixture({ settings: work });
+  f.effects.length = 0;
+  f.controller.renameGroup("default", "");
+  f.controller.renameGroup("g", "Office");
+  f.controller.deleteGroup("default");
+  f.controller.deleteGroup("g");
+  assert.deepEqual(f.saved, [{ renameGroup: { groupId: "default", name: "" } },
+    { renameGroup: { groupId: "g", name: "Office" } }, { deleteGroup: { groupId: "g" } }]);
   assert.deepEqual(f.effects, []);
 });

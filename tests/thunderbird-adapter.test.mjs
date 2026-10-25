@@ -473,10 +473,11 @@ test("native tree loss of all selected-account rows clears the real controller w
   const f = fixture();
   const Model = loadScript("addon/lib/model.js", "AccountPaneModel");
   const Controller = loadScript("addon/experiment/controller.js", "AccountPaneController");
+  const groups = loadScript("addon/lib/groups.js", "AccountPaneGroups");
   const rows = new Map(f.adapter.listFolders("a").map(folder => [folder.uri, { uri: folder.uri }]));
   f.window.folderPane.getRowForFolder = uri => rows.get(uri) ?? null;
   const restrictions = [], selections = [], saved = [];
-  const controller = Controller.create({ adapter: f.adapter, model: Model, settings: {},
+  const controller = Controller.create({ adapter: f.adapter, model: Model, groups, settings: {},
     filter: { apply(id) { restrictions.push(id); } },
     view: { setCollapsed() {}, render(groups, selection) { selections.push(selection.type === "account" ? selection.id : null); } },
     save(patch) { saved.push(structuredClone(patch)); }
@@ -489,7 +490,7 @@ test("native tree loss of all selected-account rows clears the real controller w
   f.flush();
   assert.equal(restrictions.at(-1), null);
   assert.equal(selections.at(-1), null);
-  assert.deepEqual(saved, [{ selectedAccountId: null }]);
+  assert.deepEqual(saved, [{ selectedGroupId: null, selectedAccountId: null }]);
   assert.deepEqual(Array.from(f.adapter.listAccounts(), account => account.id), ["b", "a", "local"]);
   assert.deepEqual(Array.from(f.adapter.activeModes()), ["all", "favorite"]);
   assert.equal(f.adapter.currentFolder().uri, "fixture://a/RenamedInbox");
@@ -504,6 +505,7 @@ test("native same-account multiple selection survives tree refresh but removed s
   const f = fixture();
   const Model = loadScript("addon/lib/model.js", "AccountPaneModel");
   const Controller = loadScript("addon/experiment/controller.js", "AccountPaneController");
+  const groups = loadScript("addon/lib/groups.js", "AccountPaneGroups");
   const tree = f.window.document.getElementById("folderTree");
   const rows = [f.inbox, f.archive].map(folder => ({ uri: folder.URI,
     dataset: { serverKey: folder.server.key } }));
@@ -511,7 +513,7 @@ test("native same-account multiple selection survives tree refresh but removed s
   tree.selection = new Set(rows);
   f.window.folderPane.getRowForFolder = uri => tree.rows.find(row => row.uri === uri) ?? null;
   const selections = [], saved = [];
-  const controller = Controller.create({ adapter: f.adapter, model: Model, settings: {},
+  const controller = Controller.create({ adapter: f.adapter, model: Model, groups, settings: {},
     filter: { apply() {} }, view: { setCollapsed() {}, render(groups, selection) { selections.push(selection.type === "account" ? selection.id : null); } },
     save(patch) { saved.push(structuredClone(patch)); }
   });

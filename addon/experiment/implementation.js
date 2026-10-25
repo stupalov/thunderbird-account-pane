@@ -42,7 +42,7 @@ var accountPane = class extends ExtensionCommon.ExtensionAPI {
     const { ExtensionSupport } = ChromeUtils.importESModule("resource:///modules/ExtensionSupport.sys.mjs");
     const { NetUtil } = ChromeUtils.importESModule("resource://gre/modules/NetUtil.sys.mjs");
     const scope = {};
-    for (const path of ["lib/model.js", "experiment/tree-filter.js", "experiment/account-view.js",
+    for (const path of ["lib/groups.js", "lib/model.js", "experiment/tree-filter.js", "experiment/account-view.js",
       "experiment/controller.js", "experiment/thunderbird-adapter.js", "experiment/lifecycle.js"]) {
       Services.scriptloader.loadSubScriptWithOptions(this.extension.rootURI.resolve(path), {
         target: scope, allowUnsafeURL: true
@@ -86,21 +86,18 @@ var accountPane = class extends ExtensionCommon.ExtensionAPI {
         adapter = scope.AccountPaneAdapter.create({ window, MailServices, Services, Ci, FolderUtils });
         view = scope.AccountPaneView.create({ document: window.document,
           folderPane: window.document.getElementById("folderPane"), labels, cssText,
-          // Interim mapping onto the single-group controller; group menus and moves come later.
-          onSelect: selection => controller?.selectAccount(selection?.type === "account" ? selection.id : null),
+          onSelect: selection => controller?.select(selection),
           onContextMenu: (target, event, anchor) => {
             if (target?.type === "account") adapter?.showAccountContextMenu(target.id, event, anchor);
           },
           onReorder: (movedId, targetId, before) => adapter?.reorderAccount(movedId, targetId, before),
-          onMove: () => {},
-          onExpandedChanged: (groupId, value) => {
-            if (groupId === "default") controller?.setAccountsExpanded(value);
-          } });
+          onMove: (accountId, groupId, placement) => controller?.moveAccount(accountId, groupId, placement),
+          onExpandedChanged: (groupId, value) => controller?.setGroupExpanded(groupId, value) });
         filter = scope.AccountPaneTreeFilter.attach({ window,
           tree: window.document.getElementById("folderTree"),
           accountForRow: row => adapter.accountForRow(row), followTarget: id => controller?.followFolder(id) });
         controller = scope.AccountPaneController.create({ adapter, model: scope.AccountPaneModel,
-          filter, view, settings: this._settings, save: patch => {
+          groups: scope.AccountPaneGroups, filter, view, labels, settings: this._settings, save: patch => {
             if (this._disposed || !this._fire) throw new Error("ACCOUNTPANE_LISTENER_UNAVAILABLE");
             // Native fire.async forwards the background listener's persistence Promise.
             return this._fire.async(patch);
