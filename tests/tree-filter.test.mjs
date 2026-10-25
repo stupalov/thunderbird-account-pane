@@ -679,3 +679,112 @@ test("native naming exceptions always restore temporary name style", () => {
   assert.equal(row._setName, before);
   assert.equal(row.name, "Release - notes - Work - account");
 });
+
+test("a set of two accounts hides only non-members and keeps roots unflattened", () => {
+  const f = makeTreeFixture(["a", "b", "c"]);
+  const { root, child } = serverBranch(f, "a", false);
+  const filter = filters.attach(f.options);
+  filter.apply(["a", "b"]);
+  assert.deepEqual(Array.from(f.tree.rows), [root, child, f.tree.allRows[2]]);
+  assert.equal(f.tree.allRows[3].getAttribute("data-accountpane-hidden"), "true");
+  assert.equal(root.getAttribute("data-accountpane-hidden"), null);
+  assert.equal(root.getAttribute("data-accountpane-flattened"), null);
+  assert.equal(root.unselectable, false);
+  assert.equal(child.style.getPropertyValue("--accountpane-indent"), "");
+  filter.apply(null);
+  assert.equal(f.tree.allRows[3].getAttribute("data-accountpane-hidden"), null);
+  filter.dispose();
+});
+
+test("a set of one account behaves exactly like the former single-id apply", () => {
+  const f = makeTreeFixture(["a", "b", "c"]);
+  const { root, child } = serverBranch(f, "a");
+  const filter = filters.attach(f.options);
+  filter.apply(["a"]);
+  assert.deepEqual(Array.from(f.tree.rows), [child]);
+  assert.equal(root.unselectable, true);
+  assert.equal(root.collapsed, false);
+  assert.equal(root.getAttribute("data-accountpane-flattened"), "true");
+  assert.equal(child.style.getPropertyValue("--accountpane-indent"), "0px");
+  assert.equal(f.tree.allRows[2].getAttribute("data-accountpane-hidden"), "true");
+  filter.apply([]);
+  assert.equal(root.unselectable, false);
+  assert.equal(root.collapsed, true);
+  assert.equal(f.tree.allRows[2].getAttribute("data-accountpane-hidden"), null);
+  filter.dispose();
+});
+
+test("string apply remains a one-account set", () => {
+  const f = makeTreeFixture(["a", "b", "c"]);
+  const filter = filters.attach(f.options);
+  filter.apply("b");
+  assert.deepEqual(ids(f.tree), ["b"]);
+  f.tree.updateSelection(f.tree.allRows[1]);
+  assert.equal(f.events.some(event => event.type === "follow"), false);
+  filter.dispose();
+});
+
+test("rows getter returns rows of every member account", () => {
+  const f = makeTreeFixture(["a", "b", "c", "a", "c"]);
+  const filter = filters.attach(f.options);
+  filter.apply(["c", "a"]);
+  assert.deepEqual(ids(f.tree), ["a", "c", "a", "c"]);
+  filter.dispose();
+});
+
+test("selection inside the set does not notify; selection of a non-member account follows it; mixed selection fails open to null", () => {
+  const f = makeTreeFixture(["a", "b", "c"]);
+  const [a, b, c] = f.tree.allRows;
+  const filter = filters.attach(f.options);
+  filter.apply(["a", "b"]);
+  f.tree.updateSelection(b);
+  f.tree.swapSelection([a, b]);
+  assert.deepEqual(f.events.map(event => event.type), ["update", "swap"]);
+  f.events.length = 0;
+  f.tree.updateSelection(c);
+  assert.deepEqual(f.events.map(event => event.type), ["follow", "update"]);
+  assert.equal(f.events[0].accountId, "c");
+  assert.deepEqual(f.events[0].rows, [c]);
+  filter.apply(["a", "b"]);
+  f.events.length = 0;
+  f.tree.swapSelection([a, c]);
+  assert.deepEqual(f.events.map(event => event.type), ["follow", "swap"]);
+  assert.equal(f.events[0].accountId, null);
+  assert.deepEqual(ids(f.tree), ["a", "b", "c"]);
+  filter.dispose();
+});
+
+test("unified parents keep member rows of several accounts and hide mixed aggregates", () => {
+  const f = makeTreeFixture([]);
+  const group = makeTreeRow(null);
+  group.modeName = "smart"; group.children = true; group.collapsed = true;
+  group.childList = { hidden: true };
+  const [a, b, c] = ["a", "b", "c"].map(id => {
+    const row = makeTreeRow(id, group); row.modeName = "smart"; return row;
+  });
+  const tag = makeTreeRow(null); tag.modeName = "tags";
+  f.tree.allRows.push(group, a, b, c, tag);
+  const filter = filters.attach(f.options);
+  filter.apply(["a", "b"]);
+  assert.deepEqual(Array.from(f.tree.rows), [a, b]);
+  assert.equal(group.getAttribute("data-accountpane-hidden"), null);
+  assert.equal(group.unselectable, true);
+  assert.equal(c.getAttribute("data-accountpane-hidden"), "true");
+  assert.equal(tag.getAttribute("data-accountpane-hidden"), "true");
+  filter.dispose();
+  assert.equal(group.collapsed, true);
+  assert.equal(group.unselectable, false);
+});
+
+test("names are not shortened for a multi-account set", () => {
+  const f = makeTreeFixture(["a", "b"]);
+  for (const row of f.tree.allRows) { namedFolder(row); }
+  const [a] = f.tree.allRows;
+  const filter = filters.attach(f.options);
+  filter.apply(["a"]);
+  assert.equal(a.name, "Release - notes");
+  filter.apply(["a", "b"]);
+  assert.equal(a.name, "Release - notes - Work - account");
+  assert.equal(Object.hasOwn(a, "_setName"), false);
+  filter.dispose();
+});
