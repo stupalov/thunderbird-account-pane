@@ -337,6 +337,7 @@ var AccountPaneAdapter = (() => {
       cleanups.delete(removeGroupPopup);
       const popup = groupPopup;
       groupPopup = null;
+      if (!popup) return;
       if (popup.state === "open" || popup.state === "showing") popup.hidePopup();
       popup.remove();
     }
@@ -345,9 +346,10 @@ var AccountPaneAdapter = (() => {
       if (disposed || !anchor || !items) return false;
       try {
         if (!groupPopup) {
-          groupPopup = xul("menupopup");
-          groupPopup.setAttribute("id", "accountpane-group-context");
-          window.document.querySelector("popupset").append(groupPopup);
+          const popup = xul("menupopup");
+          popup.setAttribute("id", "accountpane-group-context");
+          window.document.querySelector("popupset").append(popup);
+          groupPopup = popup;
           cleanups.add(removeGroupPopup);
         }
         if (groupPopup.state === "open" || groupPopup.state === "showing") groupPopup.hidePopup();

@@ -719,6 +719,19 @@ test("group menu is created once, opens at the pointer or anchor, and is removed
   assert.equal(f.adapter.showGroupContextMenu({ button: 0 }, anchor, items), false);
 });
 
+test("group menu creation is retried after a missing popupset", () => {
+  const f = menuFixture(), anchor = {}, item = { label: "x", onCommand() {} };
+  const items = { openInNewTab: item, openInNewWindow: item, newGroup: item, rename: item, delete: item };
+  f.window.document.querySelector = () => null;
+  assert.equal(f.adapter.showGroupContextMenu({ button: 0 }, anchor, items), false);
+  f.window.document.querySelector = selector => selector === "popupset" ? f.popupset : null;
+  assert.equal(f.adapter.showGroupContextMenu({ button: 0 }, anchor, items), true);
+  assert.equal(f.popupset.children.length, 1);
+  assert.equal(f.popupset.children[0].opened.length, 1);
+  f.adapter.dispose();
+  assert.deepEqual(f.popupset.children, []);
+});
+
 test("promptGroupName returns the text, null on cancel or exception", () => {
   const f = fixture(), calls = [];
   f.window.top = { name: "messenger" };
