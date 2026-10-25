@@ -515,6 +515,15 @@ test("setGroupExpanded saves groupExpanded and updates the view", () => {
   assert.deepEqual(f.effects.filter(effect => effect[0] === "collapsed"), [["collapsed", []]]);
 });
 
+test("pending expansion of a deleted group is released", () => {
+  const f = fixture({ settings: work });
+  f.controller.setGroupExpanded("g", false);
+  f.controller.setGroupExpanded("default", false);
+  f.effects.length = 0;
+  f.controller.updateSettings({});
+  assert.deepEqual(f.effects.filter(effect => effect[0] === "collapsed"), [["collapsed", ["default"]]]);
+});
+
 test("failed expansion save lets the shared snapshot win", async () => {
   const f = fixture({ settings: work, saveResult: patch => patch.groupExpanded ? Promise.reject(Error("storage failed")) : undefined });
   f.controller.setGroupExpanded("default", false);

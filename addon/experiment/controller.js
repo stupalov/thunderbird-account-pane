@@ -233,7 +233,8 @@ var AccountPaneController = (() => {
       const before = groupView(), shown = groups.memberIds(before, selection);
       shared = groups.normalize(value);
       for (const [id, pending] of pendingExpanded) {
-        if (shared.collapsedGroups.includes(id) !== pending.expanded) {
+        if (shared.collapsedGroups.includes(id) !== pending.expanded ||
+            id !== groups.DEFAULT_ID && !shared.groups.some(group => group.id === id)) {
           pendingExpanded.delete(id);
         }
       }
