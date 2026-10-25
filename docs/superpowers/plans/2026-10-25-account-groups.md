@@ -326,7 +326,7 @@ Model: Sonnet.
 
 ### After the tasks (orchestrator, not subagents)
 
-- Whole-branch review (Opus) against the spec and Review Focus.
+- Whole-branch review (Fable 5.1) against the spec and Review Focus. Per-task reviews also use Fable 5.1.
 - Copy the XPI to `~/tmp/accountpane-0.2.0.xpi`, give the user the native macOS checklist (spec "Testing" → Native), record results in `docs/testing.md`.
 - Optional Windows 11 VM keyboard pass via the harness in `.worktrees/accountpane-v1/build/HANDOFF.md`.
 - Push the branch and open a PR to `main` (no merge/tag/release/upload).
