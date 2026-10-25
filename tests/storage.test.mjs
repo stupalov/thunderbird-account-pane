@@ -146,7 +146,7 @@ test("pruneMembership drops absent keys and keeps hidden ones", async () => {
 test("copyPatch ignores malformed group patches", () => {
   const storage = storageModule();
   for (const bad of [{ createGroup: { groupId: 7 } }, { moveAccount: { accountId: "" } },
-    { pruneMembership: { accountIds: "a" } }, { renameGroup: { groupId: "g" } }, { deleteGroup: {} },
+    { pruneMembership: { accountIds: "a" } }, { pruneMembership: { accountIds: [] } }, { renameGroup: { groupId: "g" } }, { deleteGroup: {} },
     { groupExpanded: { groupId: "g", expanded: "no" } }, { selectedGroupId: 3 }]) {
     assert.deepEqual(plain(storage.copyPatch(bad)), {});
   }

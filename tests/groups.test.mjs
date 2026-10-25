@@ -47,6 +47,13 @@ test("normalize drops garbage field by field", () => {
   assert.equal(groups.normalize("junk").version, 2);
 });
 
+test("normalize drops empty account keys like 0.1.x", () => {
+  const s = groups.normalize({ groups: [{ id: "g-1", name: "Work" }],
+    membership: { "": "g-1", a: "g-1" }, lastFolders: { "": "fixture://x", a: "fixture://a/x" } });
+  assert.deepEqual(plain(s.membership), { a: "g-1" });
+  assert.deepEqual(plain(s.lastFolders), { a: "fixture://a/x" });
+});
+
 test("normalize keeps valid selections and prefers the account", () => {
   assert.equal(withGroups({ selectedGroupId: "default" }).selectedGroupId, "default");
   assert.equal(withGroups({ selectedGroupId: "g-1" }).selectedGroupId, "g-1");

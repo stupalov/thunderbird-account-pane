@@ -27,7 +27,7 @@ var AccountPaneGroups = {
       seen.add(group.id);
       return [{ id: group.id, name }];
     });
-    const entries = field => this.isObject(v[field]) ? Object.entries(v[field]) : [];
+    const entries = field => this.isObject(v[field]) ? Object.entries(v[field]).filter(([key]) => key) : [];
     const collapsed = Array.isArray(v.collapsedGroups) ? v.collapsedGroups :
       v.accountsExpanded === false ? [this.DEFAULT_ID] : [];
     const selectedAccountId = typeof v.selectedAccountId === "string" ? v.selectedAccountId : null;

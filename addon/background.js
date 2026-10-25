@@ -23,7 +23,7 @@ var AccountPaneStorage = (() => {
     if (object(r) && id(r.groupId) && text(r.name)) patch.renameGroup = { groupId: r.groupId, name: r.name };
     if (object(d) && id(d.groupId)) patch.deleteGroup = { groupId: d.groupId };
     if (object(m) && id(m.accountId) && id(m.groupId)) patch.moveAccount = { accountId: m.accountId, groupId: m.groupId };
-    if (object(p) && Array.isArray(p.accountIds) && p.accountIds.every(id)) {
+    if (object(p) && Array.isArray(p.accountIds) && p.accountIds.length && p.accountIds.every(id)) {
       patch.pruneMembership = { accountIds: [...p.accountIds] };
     }
     return patch;
