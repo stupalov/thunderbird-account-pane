@@ -206,8 +206,9 @@ test("implementation loads lib/groups.js and passes group labels", async () => {
     openInNewTab: ["openInNewTab!", false, false], openInNewWindow: ["openInNewWindow!", false, true],
     newGroup: ["newAccountGroup!", false, false], rename: ["renameGroup!", false, false], delete: ["deleteGroup!", false, false] });
   before = f.events.length; f.prompts.push("Team", "Renamed");
-  for (const name of ["openInNewTab", "newGroup", "rename", "delete"]) items[name].onCommand();
-  assert.deepEqual(f.events.slice(before), [["open", "fixture://a/Inbox", "tab"],
+  const commandEvent = { shiftKey: true };
+  for (const name of ["openInNewTab", "newGroup", "rename", "delete"]) items[name].onCommand(commandEvent);
+  assert.deepEqual(f.events.slice(before), [["open", "fixture://a/Inbox", "tab", commandEvent],
     ["prompt", "newGroupPromptTitle!", "groupNamePrompt!"], ["create", "Team", null],
     ["prompt", "renameGroupPromptTitle!", "groupNamePrompt!", "Work"], ["rename", "g-1", "Renamed"], ["delete", "g-1"]]);
   f.contextMenu({ type: "group", id: "default" }, menuEvent, anchor);

@@ -704,6 +704,11 @@ test("group menu is created once, opens at the pointer or anchor, and is removed
   assert.equal(popup.children[1].getAttribute("hidden"), "true");
   for (const node of popup.children.filter(node => node.tagName === "menuitem")) node.command();
   assert.deepEqual(log, ["tab", "window", "new", "rename", "delete"]);
+  let received;
+  f.adapter.showGroupContextMenu({ button: 0 }, anchor, { ...items, openInNewTab: { label: "tab",
+    onCommand: event => { received = event; } } });
+  const commandEvent = popup.children[0].command();
+  assert.equal(received, commandEvent);
   assert.equal(popup.children[2].getAttribute("hidden"), null);
   f.adapter.showGroupContextMenu({ button: 0 }, anchor, { ...items, openInNewTab: item("tab", { hidden: true }) });
   assert.equal(popup.children[2].getAttribute("hidden"), "true");
@@ -741,8 +746,16 @@ test("openFolder uses the native tab and window helpers and fails closed when mi
   assert.equal(f.adapter.openFolder(folder.URI, "tab"), true);
   assert.equal(f.adapter.openFolder(folder.URI, "window"), true);
   assert.equal(f.adapter.openFolder("fixture://gone", "tab"), false);
-  assert.deepEqual(structuredClone(calls), [["tab", [folder], { background: false }], ["window", folder.URI, -1]]);
+  assert.deepEqual(structuredClone(calls), [["tab", [folder], {}], ["window", folder.URI, -1]]);
   assert.equal(calls[0][1][0], folder);
+  const shift = { shiftKey: true };
+  assert.equal(f.adapter.openFolder(folder.URI, "tab", shift), true);
+  assert.equal(calls[2][2].event, shift);
+  assert.equal("background" in calls[2][2], false);
+  f.window.paneLayout = { folderPaneSplitter: { isCollapsed: true }, messagePaneSplitter: { isCollapsed: false } };
+  assert.equal(f.adapter.openFolder(folder.URI, "tab", shift), true);
+  assert.deepEqual(structuredClone(calls[3][2]), { event: shift, folderPaneVisible: false, messagePaneVisible: true });
+  calls.splice(2);
   delete f.window.top.MsgOpenNewWindowForFolder;
   assert.equal(f.adapter.canOpenFolder("window"), false);
   assert.equal(f.adapter.openFolder(folder.URI, "window"), false);

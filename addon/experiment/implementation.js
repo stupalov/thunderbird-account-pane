@@ -81,9 +81,9 @@ var accountPane = class extends ExtensionCommon.ExtensionAPI {
         const menu = controller?.groupMenu(id);
         if (!menu) return null;
         const open = where => ({ label: where === "tab" ? labels.openInNewTab : labels.openInNewWindow,
-          hidden: !adapter.canOpenFolder(where), disabled: !menu.openTarget, onCommand: () => {
+          hidden: !adapter.canOpenFolder(where), disabled: !menu.openTarget, onCommand: event => {
             const uri = controller?.groupMenu(id).openTarget?.uri;
-            if (uri) adapter.openFolder(uri, where);
+            if (uri) adapter.openFolder(uri, where, event);
           } });
         return { openInNewTab: open("tab"), openInNewWindow: open("window"),
           newGroup: { label: labels.newAccountGroup, onCommand: () => newGroup() },

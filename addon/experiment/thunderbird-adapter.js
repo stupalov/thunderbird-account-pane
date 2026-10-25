@@ -258,7 +258,7 @@ var AccountPaneAdapter = (() => {
       item.addEventListener("command", event => {
         // Native folderPaneContext dispatches bubbling commands by item id.
         event.stopPropagation();
-        onCommand();
+        onCommand(event);
       });
       return item;
     }
@@ -389,13 +389,24 @@ var AccountPaneAdapter = (() => {
       }
     }
 
-    function openFolder(uri, where) {
+    // Like about3Pane's own Open in New Tab: MsgOpenNewTabForFolders reads
+    // mail.tabs.loadInBackground and flips it on Shift when background is unset.
+    function tabParams(event) {
+      const params = event ? { event } : {};
+      const folderPane = window.paneLayout?.folderPaneSplitter, messagePane = window.paneLayout?.messagePaneSplitter;
+      if (typeof folderPane?.isCollapsed === "boolean" && typeof messagePane?.isCollapsed === "boolean") {
+        Object.assign(params, { folderPaneVisible: !folderPane.isCollapsed, messagePaneVisible: !messagePane.isCollapsed });
+      }
+      return params;
+    }
+
+    function openFolder(uri, where, event = null) {
       if (typeof uri !== "string" || !canOpenFolder(where)) return false;
       try {
         const folder = MailServices.folderLookup.getFolderForURL(uri);
         if (!folder) return false;
         if (where === "tab") {
-          chromeWindow().MsgOpenNewTabForFolders([folder], { background: false });
+          chromeWindow().MsgOpenNewTabForFolders([folder], tabParams(event));
         } else {
           chromeWindow().MsgOpenNewWindowForFolder(folder.URI, -1);
         }
