@@ -40,7 +40,7 @@ The current manifest sets `strict_min_version: "140.0"` and `strict_max_version:
 
 Thunderbird 140 ESR (and Betterbird 140) differs from 157+ in two internals the adapter uses: `nsIMsgFolder.localizedName` and `FolderUtils.compareFolders` do not exist there. The adapter falls back to the folder `name` and to the ESR 140 folder-pane order (sort order, then a base-sensitivity name collator); keep these fallbacks while 140 is in the supported range.
 
-AccountPane integrates with Thunderbird's internal folder-pane APIs. Supported views are All, Favorites, Unread, Recent, Unified, and Tags. Selecting an account enables All Folders when needed, retaining the other enabled views. Mixed-account Unified/Tags aggregates are hidden for a selected account, while physical account folders remain available. All Accounts restores the native view. If required integration points are unavailable, the implementation is designed to leave the native pane available.
+AccountPane integrates with Thunderbird's internal folder-pane APIs. Folder filtering accepts a set of accounts: selecting a group with several accounts keeps each account's root row in the pane. Supported views are All, Favorites, Unread, Recent, Unified, and Tags. Selecting an account enables All Folders when needed, retaining the other enabled views. Mixed-account Unified/Tags aggregates are hidden for a selected account, while physical account folders remain available. All Accounts restores the native view. If required integration points are unavailable, the implementation is designed to leave the native pane available.
 
 Account ordering uses `MailServices.accounts.reorderAccounts`. Only visible accounts are reordered; hidden, chat, and deferred-account slots retain their positions. Reordering persists in Thunderbird and is not reverted by disabling AccountPane.
 
@@ -50,7 +50,7 @@ The account heading and row geometry are derived from the native folder pane whe
 
 ## Permissions and local data
 
-Experiment APIs trigger Thunderbird's full-access permission prompt. The implementation currently reads account/folder metadata, attaches reversible panel elements and handlers, and stores account selection, expansion state, and last-folder URIs in `storage.local`. It does not read message bodies/passwords or make external network requests. This describes current behavior; it does not restrict Experiment privileges.
+Experiment APIs trigger Thunderbird's full-access permission prompt. The implementation currently reads account/folder metadata, attaches reversible panel elements and handlers, and stores account selection, expansion state, last-folder URIs, and account groups (names, order, membership, and collapsed state, settings version 2) in `storage.local`. `lib/groups.js` holds the group model and is loaded by both the background script and the experiment, so group rules live in one place. It does not read message bodies/passwords or make external network requests. This describes current behavior; it does not restrict Experiment privileges.
 
 Never commit personal profiles, account addresses, folder URIs, messages, passwords, or unredacted diagnostics. Documentation previews use fictional accounts.
 

@@ -2,6 +2,15 @@
 
 User-facing changes are listed newest first. These are beta versions; inclusion here does not imply a published release package or validation on every supported platform.
 
+## 0.2.0
+
+- Account groups. **All Accounts** is now the default group; create your own groups with **New Account Group…** and keep related accounts together. Each group header can be collapsed and shows the sum of its accounts' counters and the new-mail star while collapsed.
+- Selecting a group shows the folders of its accounts only (several accounts keep their root rows). While no account is in a user group, All Accounts still shows the full native folder tree as before; once accounts are in groups, it shows only its own accounts' folders.
+- Right-click a group header (or press the context-menu key or Shift+F10) for **Open in New Tab**, **Open in New Window**, **New Account Group…**, **Rename…** and **Delete**. Deleting a group returns its accounts to All Accounts and does not touch mail. The default group can be renamed; an empty name restores "All Accounts".
+- The account context menu gains **Move to Group**. You can also drag an account onto a group header, or between the accounts of another group, to move it. Dragging within a group still reorders accounts.
+- Groups (names, order, membership, collapsed state) are stored locally and shared by all windows. Settings from 0.1.x migrate automatically to settings version 2. Hidden accounts keep their group, removed accounts drop out and new accounts land in All Accounts.
+- **Search Messages…** and **Settings…** are intentionally not offered for groups, because Thunderbird's search and account settings work on a single folder or account; the account menu keeps them. There are no nested groups, and groups cannot be reordered yet.
+
 ## 0.1.13
 
 - Support Thunderbird 140 ESR and Betterbird 140: `strict_min_version` is now `140.0` (maximum stays `158.*`).
