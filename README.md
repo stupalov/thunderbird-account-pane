@@ -19,7 +19,7 @@ AccountPane began as an attempt to bring back the way of working with mail that 
 - **Familiar folder views.** Use All, Favorites, Unread, Recent, Unified, and Tags. Labels such as “Inbox — Work” become “Inbox” while viewing one account.
 - **Move accounts between groups.** Drag an account onto a group header, or use **Move to Group** in its menu.
 - **Native actions.** Right-click an account for Thunderbird's account context menu. Folder actions remain in the usual folder pane.
-- **New-mail star.** An account shows Thunderbird's new-mail star while any of its folders outside Spam/Junk has new messages. Collapsed All Accounts shows it when any account does.
+- **New-mail star.** An account shows Thunderbird's new-mail star while any of its folders outside Spam/Junk has new messages. A collapsed group shows it when any of its accounts does.
 - **Keyboard navigation.** Navigate the account tree with the arrow keys and select with Enter or Space.
 
 ## Screenshots
@@ -58,7 +58,7 @@ What AccountPane actually does with that access: it reads account and folder met
 - **Click the arrow beside a group** to collapse or expand its accounts. This does not change the selected account or open folder. Combined counters appear when the group is collapsed.
 - **Drag an account above or below another** to change its order. This changes Thunderbird's account order across mail tabs, not just this panel.
 - **Right-click an account** to open its native context menu without switching the open folder.
-- **Right-click a group header** (or press the context-menu key or Shift+F10 on a row) for the group menu; see [Account groups](#account-groups).
+- **Right-click a group header** (or press the context-menu key, Shift+F10 on Windows/Linux, on a row) for the group menu; see [Account groups](#account-groups).
 - **Use the keyboard:** Up/Down and Home/End move focus; Left/Right collapse, expand, or move between tree levels; Enter/Space select; Tab moves to the next control.
 
 For a selected account, combined Unified/Tags rows that span accounts are hidden. Select All Accounts to restore the complete view.
@@ -70,9 +70,9 @@ For a selected account, combined Unified/Tags rows that span accounts are hidden
 - **Create a group:** right-click a group header and choose **New Account Group…**, or choose **Move to Group → New Account Group…** in an account's menu, which creates the group and moves that account into it.
 - **Move an account:** drag it onto a group header, or drag it between the accounts of another group to move it and place it there. Dragging within a group still reorders accounts. **Move to Group** in the account menu lists all groups.
 - **Select a group** to show the folders of its accounts. With several accounts, each account's root row stays in the folder pane. Group headers are always shown, even with one or no accounts; an empty group cannot be selected.
-- **Group menu:** **Open in New Tab** and **Open in New Window** open the group's first Inbox (the window entry is hidden when your Thunderbird version lacks the native helper). **Rename…** works for every group; the default group can be renamed too, and an empty name restores "All Accounts". **Delete** is not offered for All Accounts; it returns the group's accounts to All Accounts and does not touch any mail.
+- **Group menu:** **Open in New Tab** and **Open in New Window** open the group's first available Inbox, or the first folder of the first account when no member has one (the window entry is hidden when your Thunderbird version lacks the native helper). **Rename…** works for every group; the default group can be renamed too, and an empty name restores "All Accounts". **Delete** is shown disabled for All Accounts; it returns the group's accounts to All Accounts and does not touch any mail.
 - **Collapsed groups** show the sum of their accounts' counters and the new-mail star.
-- **Keyboard:** press the context-menu key (or Shift+F10) on a group or account row to open its menu.
+- **Keyboard:** press the context-menu key (Shift+F10 on Windows/Linux) on a group or account row to open its menu.
 - **Limits:** Search Messages… and Settings… are not offered for groups, since Thunderbird's search and account settings work on a single folder or account; use the account menu for them. There are no nested groups, and groups cannot be reordered yet.
 
 Groups (names, order, membership, collapsed state) are stored locally and shared by all windows; the selected group or account stays per tab or window. Settings migrate automatically from 0.1.x. Hidden accounts keep their group, removed accounts drop out, and new accounts land in All Accounts.
