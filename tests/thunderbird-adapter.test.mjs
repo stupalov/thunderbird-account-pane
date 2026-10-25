@@ -478,7 +478,7 @@ test("native tree loss of all selected-account rows clears the real controller w
   const restrictions = [], selections = [], saved = [];
   const controller = Controller.create({ adapter: f.adapter, model: Model, settings: {},
     filter: { apply(id) { restrictions.push(id); } },
-    view: { setExpanded() {}, render(accounts, id) { selections.push(id); } },
+    view: { setCollapsed() {}, render(groups, selection) { selections.push(selection.type === "account" ? selection.id : null); } },
     save(patch) { saved.push(structuredClone(patch)); }
   });
   assert.equal(selections.at(-1), "a");
@@ -512,7 +512,7 @@ test("native same-account multiple selection survives tree refresh but removed s
   f.window.folderPane.getRowForFolder = uri => tree.rows.find(row => row.uri === uri) ?? null;
   const selections = [], saved = [];
   const controller = Controller.create({ adapter: f.adapter, model: Model, settings: {},
-    filter: { apply() {} }, view: { setExpanded() {}, render(accounts, id) { selections.push(id); } },
+    filter: { apply() {} }, view: { setCollapsed() {}, render(groups, selection) { selections.push(selection.type === "account" ? selection.id : null); } },
     save(patch) { saved.push(structuredClone(patch)); }
   });
   // about3Pane._onSelect clears gFolder and emits folderURIChanged for size > 1.

@@ -37,8 +37,11 @@ function fixture({ settings = {}, current = null, modes = ["all", "favorite"], c
   assert.ok(Controller?.create, "navigation controller factory must exist");
   const controller = Controller.create({ adapter, model, settings,
     filter: { apply(id) { effects.push(["filter", id]); } },
-    view: { setExpanded(value) { effects.push(["expanded", value]); },
-      render(accounts, id) { effects.push(["render", id, accounts.map(account => account.id), accounts.map(account => account.name)]); },
+    view: { setCollapsed(ids) { effects.push(["expanded", !ids.includes("default")]); },
+      render([group], selection, byId) {
+        const ids = group.accountIds;
+        effects.push(["render", selection.type === "account" ? selection.id : null, ids, ids.map(id => byId[id].name)]);
+      },
       updateCounts(snapshot) { if (trackCounts) effects.push(["counts", snapshot.showTotal]); } },
     save(patch) { saved.push(structuredClone(patch)); return saveResult?.(patch); }
   });

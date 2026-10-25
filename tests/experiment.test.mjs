@@ -73,7 +73,7 @@ function fixture({ failFilter = false, delayCSS = false, failController = false,
   const implementation = new scope.accountPane(extension), api = implementation.getAPI({}).accountPane;
   return { implementation, api, events, logs, loaded, settings, controllers,
     attach() { disposer = attach(pane); return disposer; }, select: id => select(id), follow: id => follow(id),
-    expand: value => expand(value), contextMenu: (...args) => contextMenu(...args),
+    expand: (...args) => expand(...args), contextMenu: (...args) => contextMenu(...args),
     reorder: (...args) => reorder(...args),
     save: patch => save(patch), completeCSS: () => cssCallback({ available: () => 11, close() {} }, 0),
     listen: fire => register(fire), scope };
@@ -84,10 +84,15 @@ test("Experiment isolates helpers and wires controller adapter filter view and s
   await f.api.start(f.settings); await f.api.start(f.settings); f.attach();
   assert.equal(f.events.filter(v => v === "start").length, 1); assert.equal(f.loaded.length, 6);
   assert.ok(f.loaded.every(v => v.scope === f.loaded[0].scope)); assert.equal(f.scope.AccountPaneModel, undefined);
-  f.select("a"); f.follow(null); f.expand(false);
+  f.select({ type: "account", id: "a" }); f.follow(null); f.expand("default", false);
   const menuEvent = { button: 2 }, anchor = {};
-  f.contextMenu("a", menuEvent, anchor);
+  f.contextMenu({ type: "account", id: "a" }, menuEvent, anchor);
   assert.deepEqual(f.events.at(-1), ["context", "a", menuEvent, anchor]);
+  const before = f.events.length;
+  f.contextMenu({ type: "group", id: "default" }, menuEvent, anchor); f.expand("g-1", true);
+  f.select({ type: "group", id: "default" });
+  assert.deepEqual(f.events.slice(before), [["select", null]]);
+  assert.ok(f.events.some(v => Array.isArray(v) && v[0] === "select" && v[1] === "a"));
   assert.ok(f.events.some(v => Array.isArray(v) && v[0] === "follow" && v[1] === null));
   assert.ok(f.events.some(v => Array.isArray(v) && v[0] === "expanded" && v[1] === false));
   assert.equal(await f.save({ selectedAccountId: "a" }), "ack"); assert.equal(patches.length, 1);

@@ -27,7 +27,7 @@ var AccountPaneView = (() => {
   }
 
   function create({ document, folderPane, labels, onSelect, onExpandedChanged = () => {},
-    onContextMenu = () => {}, onReorder = () => {}, cssText }) {
+    onContextMenu = () => {}, onReorder = () => {}, onMove = () => {}, cssText }) {
     const tree = document.getElementById("folderTree");
     if (!tree || tree.parentNode !== folderPane) {
       throw new TypeError("AccountPane requires a supported folder pane");
@@ -50,7 +50,8 @@ var AccountPaneView = (() => {
 
     let entries = [];
     let disposed = false;
-    let expanded = true;
+    let collapsed = new Set();
+    let multiple = false;
     let lastCounts = { showTotal: false, accounts: {} };
     const dragType = "application/x-accountpane-account";
     let dragState = null;
@@ -124,17 +125,21 @@ var AccountPaneView = (() => {
       return entries.find(entry => target === entry.option || entry.row.contains(target));
     }
 
-    function rootEntry() {
-      return entries[0];
+    function headerFor(target) {
+      return entries.find(entry => entry.disclosure?.contains(target));
+    }
+
+    function isExpanded(header) {
+      return !header.empty && !collapsed.has(header.id);
     }
 
     function visibleEntries() {
-      return expanded ? entries : entries.slice(0, 1);
+      return entries.filter(entry => entry === entry.header || isExpanded(entry.header));
     }
 
     function setTabStop(entry) {
       const visible = visibleEntries();
-      const target = visible.includes(entry) ? entry : visible[0];
+      const target = visible.includes(entry) ? entry : entry?.header ?? visible[0];
       for (const current of entries) {
         current.option.tabIndex = current === target ? 0 : -1;
       }
@@ -145,36 +150,55 @@ var AccountPaneView = (() => {
       if (entry) setTabStop(entry);
     }
 
-    function setExpanded(value) {
-      if (disposed) return;
+    function syncHeader(header) {
+      const expanded = isExpanded(header);
+      if (header.empty) header.option.removeAttribute("aria-expanded");
+      else header.option.setAttribute("aria-expanded", String(expanded));
+      header.group.hidden = !expanded;
+      header.disclosure.hidden = header.empty;
+      const template = multiple ? expanded ? labels.collapseGroup : labels.expandGroup :
+        expanded ? labels.collapseAccounts : labels.expandAccounts;
+      const label = multiple ? (template ?? "").replace("{name}", () => header.name) : template;
+      header.disclosure.setAttribute("aria-label", label);
+      header.disclosure.setAttribute("title", label);
+    }
+
+    function applyCollapsed() {
       clearDrag();
-      expanded = value !== false;
-      const root = rootEntry();
-      if (!root) return;
       const activeEntry = entryFor(document.activeElement);
-      root.option.setAttribute("aria-expanded", String(expanded));
-      root.group.hidden = !expanded;
-      root.disclosure.setAttribute("aria-label", expanded ? labels.collapseAccounts : labels.expandAccounts);
-      root.disclosure.setAttribute("title", expanded ? labels.collapseAccounts : labels.expandAccounts);
-      if (!expanded && activeEntry && activeEntry.id !== null) {
-        setTabStop(root);
-        root.option.focus();
+      for (const entry of entries) if (entry === entry.header) syncHeader(entry);
+      if (activeEntry && !visibleEntries().includes(activeEntry)) {
+        setTabStop(activeEntry.header);
+        activeEntry.header.option.focus();
       } else {
-        setTabStop(activeEntry || entries.find(entry => entry.option.tabIndex === 0) || root);
+        setTabStop(activeEntry || entries.find(entry => entry.option.tabIndex === 0));
       }
       updateCounts(lastCounts);
     }
 
-    function toggleExpanded() {
-      setExpanded(!expanded);
-      onExpandedChanged(expanded);
+    function setCollapsed(groupIds) {
+      if (disposed) return;
+      collapsed = new Set(Array.isArray(groupIds) ? groupIds : []);
+      applyCollapsed();
+    }
+
+    function toggle(header) {
+      if (header.empty) return;
+      const expanded = collapsed.delete(header.id);
+      if (!expanded) collapsed.add(header.id);
+      applyCollapsed();
+      onExpandedChanged(header.id, expanded);
+    }
+
+    function select(entry) {
+      if (!entry.empty) onSelect({ type: entry.kind, id: entry.id });
     }
 
     function onContextMenuEvent(event) {
       const entry = entryFor(event.target);
-      if (!entry || entry.id === null) return;
+      if (!entry) return;
       consume(event);
-      onContextMenu(entry.id, event, entry.row);
+      onContextMenu({ type: entry.kind, id: entry.id }, event, entry.row);
     }
 
     function onClick(event) {
@@ -184,18 +208,17 @@ var AccountPaneView = (() => {
         consume(event);
         return;
       }
-      const root = rootEntry();
-      if (root?.disclosure.contains(event.target)) {
-        event.preventDefault();
-        event.stopPropagation();
-        root.option.focus();
-        toggleExpanded();
+      const header = headerFor(event.target);
+      if (header) {
+        consume(event);
+        header.option.focus();
+        toggle(header);
         return;
       }
       const entry = entryFor(event.target);
       if (entry) {
         entry.option.focus();
-        onSelect(entry.id);
+        select(entry);
       }
     }
 
@@ -222,7 +245,7 @@ var AccountPaneView = (() => {
     function onDragStart(event) {
       clearDrag();
       const source = entryFor(event.target);
-      if (disposed || !expanded || !source || source.id === null || !event.dataTransfer) {
+      if (disposed || source?.kind !== "account" || !visibleEntries().includes(source) || !event.dataTransfer) {
         event.preventDefault();
         return;
       }
@@ -239,7 +262,7 @@ var AccountPaneView = (() => {
     }
 
     function dropTarget(event) {
-      if (disposed || !expanded || !dragState || !entries.includes(dragState.source)) return null;
+      if (disposed || !dragState || !entries.includes(dragState.source)) return null;
       try {
         const transfer = event.dataTransfer;
         if (!transfer || !Array.from(transfer.types).includes(dragType)) return null;
@@ -250,11 +273,12 @@ var AccountPaneView = (() => {
       } catch {
         return null;
       }
-      const target = entryFor(event.target);
-      if (!target || target.id === null || target === dragState.source) return null;
+      const target = entryFor(event.target), source = dragState.source;
+      if (!target || target === source) return null;
+      if (target.kind === "group") return target.id === source.groupId ? null : { target, mode: "into" };
       const rect = target.row.getBoundingClientRect();
       if (!Number.isFinite(event.clientY) || !(rect.height > 0)) return null;
-      return { target, before: event.clientY < rect.top + rect.height / 2 };
+      return { target, mode: event.clientY < rect.top + rect.height / 2 ? "before" : "after" };
     }
 
     function onDragOver(event) {
@@ -263,7 +287,7 @@ var AccountPaneView = (() => {
       if (!destination) return;
       consume(event);
       event.dataTransfer.dropEffect = "move";
-      destination.target.row.setAttribute("data-accountpane-drop", destination.before ? "before" : "after");
+      destination.target.row.setAttribute("data-accountpane-drop", destination.mode);
     }
 
     function onDragLeave(event) {
@@ -277,15 +301,18 @@ var AccountPaneView = (() => {
       clearDrag();
       if (!destination) return;
       consume(event);
-      onReorder(source.id, destination.target.id, destination.before);
+      const { target, mode } = destination, before = mode === "before";
+      if (mode === "into") onMove(source.id, target.id, null);
+      else if (target.groupId === source.groupId) onReorder(source.id, target.id, before);
+      else onMove(source.id, target.groupId, { targetId: target.id, before });
     }
 
     function onKeyDown(event) {
       if (event.altKey || event.ctrlKey || event.metaKey) return;
-      const root = rootEntry();
-      if (root?.disclosure.contains(event.target) && (event.key === "Enter" || event.key === " ")) {
+      const header = headerFor(event.target);
+      if (header && (event.key === "Enter" || event.key === " ")) {
         consume(event);
-        toggleExpanded();
+        toggle(header);
         return;
       }
       const entry = entryFor(event.target);
@@ -308,20 +335,20 @@ var AccountPaneView = (() => {
           break;
         case "ArrowRight":
           consume(event);
-          if (entry === root) {
-            if (!expanded) toggleExpanded();
-            else if (entries[1]) entries[1].option.focus();
+          if (entry.kind === "group" && !entry.empty) {
+            if (collapsed.has(entry.id)) toggle(entry);
+            else visible[index + 1]?.option.focus();
           }
           return;
         case "ArrowLeft":
           consume(event);
-          if (entry !== root) root.option.focus();
-          else if (expanded) toggleExpanded();
+          if (entry.kind === "account") entry.header.option.focus();
+          else if (isExpanded(entry)) toggle(entry);
           return;
         case "Enter":
         case " ":
           consume(event);
-          onSelect(entry.id);
+          select(entry);
           return;
         default:
           return;
@@ -338,58 +365,83 @@ var AccountPaneView = (() => {
     list.addEventListener("keydown", onKeyDown);
     list.addEventListener("focusin", onFocus);
 
-    function render(accounts, selectedAccountId) {
+    function createGroup(group, accountsById) {
+      const header = Object.assign(createEntry({ id: group.id, name: group.name ?? labels.allAccounts }, true),
+        { kind: "group", groupId: group.id });
+      header.header = header;
+      header.option.setAttribute("aria-level", "1");
+      header.option.setAttribute("data-accountpane-group", group.id);
+      if (group.custom) header.option.classList.toggle("accountpane-group", true);
+      const children = (group.accountIds ?? []).filter(id => accountsById?.[id]).map(id =>
+        Object.assign(createEntry(accountsById[id]), { kind: "account", groupId: group.id, header }));
+      for (const child of children) child.option.setAttribute("aria-level", "2");
+      // A lone default group is 0.1.13's root: selectable and expandable even without accounts.
+      header.empty = multiple && children.length === 0;
+      header.group = document.createElement("ul");
+      header.group.setAttribute("role", "group");
+      header.group.append(...children.map(entry => entry.option));
+      header.option.append(header.group);
+      return [header, ...children];
+    }
+
+    function render(groups, selection, accountsById) {
       if (disposed) return;
       clearDrag();
       const previouslyFocused = entryFor(document.activeElement);
-      const selected = accounts.some(account => account.id === selectedAccountId) ? selectedAccountId : null;
-      const root = createEntry({ id: null, name: labels.allAccounts, type: "all" }, true);
-      const group = document.createElement("ul");
-      group.setAttribute("role", "group");
-      root.group = group;
-      const children = accounts.map(account => createEntry(account));
-      group.append(...children.map(entry => entry.option));
-      root.option.append(group);
-      entries = [root, ...children];
+      const groupList = Array.isArray(groups) ? groups : [];
+      multiple = groupList.length > 1;
+      entries = groupList.flatMap(group => createGroup(group, accountsById));
+      const headers = entries.filter(entry => entry === entry.header);
+      const matches = (entry, target) => entry.kind === target?.type && entry.id === target?.id;
       for (const entry of entries) {
-        entry.option.setAttribute("aria-selected", String(entry.id === selected));
+        entry.option.setAttribute("aria-selected", String(matches(entry, selection)));
       }
-      list.replaceChildren(root.option);
-      root.option.setAttribute("aria-expanded", String(expanded));
-      group.hidden = !expanded;
-      root.disclosure.setAttribute("aria-label", expanded ? labels.collapseAccounts : labels.expandAccounts);
-      root.disclosure.setAttribute("title", expanded ? labels.collapseAccounts : labels.expandAccounts);
-      const restored = previouslyFocused && entries.find(entry => entry.id === previouslyFocused.id);
-      const selectedEntry = entries.find(entry => entry.id === selected);
-      const tabStop = restored || selectedEntry || root;
-      setTabStop(tabStop);
+      list.replaceChildren(...headers.map(header => header.option));
+      for (const header of headers) syncHeader(header);
+      const restored = previouslyFocused && entries.find(entry =>
+        matches(entry, { type: previouslyFocused.kind, id: previouslyFocused.id }));
+      const fallback = previouslyFocused && headers.find(header => header.id === previouslyFocused.groupId);
+      const selectedEntry = entries.find(entry => matches(entry, selection));
+      setTabStop(restored || selectedEntry || fallback || headers[0]);
       updateCounts(lastCounts);
       syncHeadingStyle();
       if (previouslyFocused) {
-        const focusTarget = visibleEntries().includes(restored) ? restored : root;
-        focusTarget.option.focus();
+        const focusTarget = restored ? visibleEntries().includes(restored) ? restored : restored.header :
+          fallback || headers[0];
+        focusTarget?.option.focus();
       }
+    }
+
+    function focusGroup(groupId) {
+      const header = entries.find(entry => entry === entry.header && entry.id === groupId);
+      if (disposed || !header) return;
+      setTabStop(header);
+      header.option.focus();
     }
 
     function updateCounts(snapshot) {
       if (disposed) return;
       lastCounts = snapshot;
-      const accountEntries = entries.slice(1);
-      const all = metric => {
-        let sum = 0;
-        for (const entry of accountEntries) {
-          const value = snapshot.accounts?.[entry.id]?.[metric];
-          if (!Number.isSafeInteger(value) || value < 0) return null;
-          sum += value;
-          if (!Number.isSafeInteger(sum)) return null;
-        }
-        return sum;
+      const aggregate = header => {
+        const members = entries.filter(entry => entry.kind === "account" && entry.header === header);
+        const sum = metric => {
+          let total = 0;
+          for (const entry of members) {
+            const value = snapshot.accounts?.[entry.id]?.[metric];
+            if (!Number.isSafeInteger(value) || value < 0) return null;
+            total += value;
+            if (!Number.isSafeInteger(total)) return null;
+          }
+          return total;
+        };
+        return { unread: sum("unread"), total: sum("total"),
+          hasNew: members.some(entry => snapshot.accounts?.[entry.id]?.hasNew === true) };
       };
-      const aggregate = { unread: all("unread"), total: all("total"),
-        hasNew: accountEntries.some(entry => snapshot.accounts?.[entry.id]?.hasNew === true) };
       const description = (template, value) => template?.replace("{count}", String(value));
       for (const entry of entries) {
-        const counts = entry.id === null ? expanded ? null : aggregate : snapshot.accounts?.[entry.id];
+        // Expanded headers leave the numbers to member rows; empty ones have none.
+        const counts = entry.kind === "account" ? snapshot.accounts?.[entry.id] :
+          entry.empty || !collapsed.has(entry.id) ? null : aggregate(entry);
         const unread = counts?.unread;
         const total = counts?.total;
         const showNew = counts?.hasNew === true;
@@ -423,7 +475,7 @@ var AccountPaneView = (() => {
     }
 
     syncHeadingStyle();
-    return { render, setExpanded, updateCounts, dispose };
+    return { render, setCollapsed, updateCounts, focusGroup, dispose };
   }
   return { create };
 })();

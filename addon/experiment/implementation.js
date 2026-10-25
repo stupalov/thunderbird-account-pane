@@ -86,10 +86,16 @@ var accountPane = class extends ExtensionCommon.ExtensionAPI {
         adapter = scope.AccountPaneAdapter.create({ window, MailServices, Services, Ci, FolderUtils });
         view = scope.AccountPaneView.create({ document: window.document,
           folderPane: window.document.getElementById("folderPane"), labels, cssText,
-          onSelect: id => controller?.selectAccount(id),
-          onContextMenu: (id, event, anchor) => adapter?.showAccountContextMenu(id, event, anchor),
+          // Interim mapping onto the single-group controller; group menus and moves come later.
+          onSelect: selection => controller?.selectAccount(selection?.type === "account" ? selection.id : null),
+          onContextMenu: (target, event, anchor) => {
+            if (target?.type === "account") adapter?.showAccountContextMenu(target.id, event, anchor);
+          },
           onReorder: (movedId, targetId, before) => adapter?.reorderAccount(movedId, targetId, before),
-          onExpandedChanged: value => controller?.setAccountsExpanded(value) });
+          onMove: () => {},
+          onExpandedChanged: (groupId, value) => {
+            if (groupId === "default") controller?.setAccountsExpanded(value);
+          } });
         filter = scope.AccountPaneTreeFilter.attach({ window,
           tree: window.document.getElementById("folderTree"),
           accountForRow: row => adapter.accountForRow(row), followTarget: id => controller?.followFolder(id) });

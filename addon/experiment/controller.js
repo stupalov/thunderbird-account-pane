@@ -16,9 +16,16 @@ var AccountPaneController = (() => {
 
     function render() {
       filter.apply(state.selectedAccountId);
-      view.render(accounts(), state.selectedAccountId);
+      // Interim single default group until the controller handles groups; the
+      // view names a null default group after labels.allAccounts.
+      const list = accounts(), id = state.selectedAccountId;
+      view.render([{ id: "default", name: null, custom: false, accountIds: list.map(account => account.id) }],
+        id === null ? { type: "group", id: "default" } : { type: "account", id },
+        Object.fromEntries(list.map(account => [account.id, account])));
       updateCounts();
     }
+
+    const showExpanded = value => view.setCollapsed(value ? [] : ["default"]);
 
     function updateCounts() {
       if (disposed) return;
@@ -56,7 +63,7 @@ var AccountPaneController = (() => {
         return;
       }
       accountsExpanded = value;
-      view.setExpanded(value);
+      showExpanded(value);
       savePatch({ accountsExpanded: value });
     }
 
@@ -201,7 +208,7 @@ var AccountPaneController = (() => {
           !displayableFolders(state.selectedAccountId).some(folder => folder.available)) {
         state.selectedAccountId = null;
       }
-      view.setExpanded(accountsExpanded);
+      showExpanded(accountsExpanded);
       render();
     } catch (error) {
       dispose();
