@@ -657,6 +657,22 @@ test("groupChoices marks the current group; groupMenu forbids deleting default a
   assert.equal(f.controller.groupMenu("g").openTarget.uri, "fixture://a/renamed-inbox");
 });
 
+test("groupMenu exposes the raw custom name for the rename prompt", () => {
+  assert.equal(fixture({ settings: work }).controller.groupMenu("default").customName, "");
+  const named = fixture({ settings: { ...work, defaultGroupName: "Personal" } });
+  assert.equal(named.controller.groupMenu("default").customName, "Personal");
+  assert.equal(named.controller.groupMenu("g").customName, "Work");
+  assert.equal(named.controller.groupMenu("missing").customName, null);
+});
+
+test("renaming the default group to its localized label resets it", () => {
+  const f = fixture({ settings: { ...work, defaultGroupName: "Personal" } });
+  f.controller.renameGroup("default", " All Accounts ");
+  f.controller.renameGroup("g", "All Accounts");
+  assert.deepEqual(f.saved, [{ renameGroup: { groupId: "default", name: "" } },
+    { renameGroup: { groupId: "g", name: "All Accounts" } }]);
+});
+
 test("rename and delete only save patches; the default group is never deleted", () => {
   const f = fixture({ settings: work });
   f.effects.length = 0;

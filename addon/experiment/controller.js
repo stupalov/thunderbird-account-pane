@@ -275,7 +275,9 @@ var AccountPaneController = (() => {
 
     function renameGroup(groupId, name) {
       if (!disposed && typeof name === "string") {
-        savePatch({ renameGroup: { groupId, name } });
+        // The unchanged localized label must not freeze into a custom name.
+        const reset = groupId === groups.DEFAULT_ID && groups.cleanName(name) === labels?.allAccounts;
+        savePatch({ renameGroup: { groupId, name: reset ? "" : name } });
       }
     }
 
@@ -302,7 +304,8 @@ var AccountPaneController = (() => {
 
     function groupMenu(groupId) {
       const entry = groupView().find(item => item.id === groupId);
-      return { canDelete: !!entry && groupId !== groups.DEFAULT_ID, name: entry?.name ?? null,
+      const customName = !entry ? null : groupId === groups.DEFAULT_ID ? shared.defaultGroupName ?? "" : entry.name;
+      return { canDelete: !!entry && groupId !== groups.DEFAULT_ID, name: entry?.name ?? null, customName,
         openTarget: entry ? groups.openTarget(entry.accountIds,
           entry.accountIds.flatMap(id => adapter.listFolders(id)), model) : null };
     }

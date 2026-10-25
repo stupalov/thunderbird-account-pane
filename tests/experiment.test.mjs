@@ -45,8 +45,8 @@ function fixture({ failFilter = false, delayCSS = false, failController = false,
         createGroup: (...args) => events.push(["create", ...args]), renameGroup: (...args) => events.push(["rename", ...args]),
         deleteGroup: (...args) => events.push(["delete", ...args]),
         groupChoices: id => [{ id: "default", name: "All Accounts", current: id === "a" }],
-        groupMenu: id => id === "g-1" ? { canDelete: true, name: "Work", openTarget: { uri: "fixture://a/Inbox" } } :
-          { canDelete: false, name: "All Accounts", openTarget: null },
+        groupMenu: id => id === "g-1" ? { canDelete: true, name: "Work", customName: "Work", openTarget: { uri: "fixture://a/Inbox" } } :
+          { canDelete: false, name: "All Accounts", customName: "", openTarget: null },
         updateSettings: value => events.push(["settings", value]) }; controllers.push(controller); return controller; } },
     AccountPaneLifecycle: { create(options) { attach = options.attachPane;
       return { start() { events.push("start"); }, dispose() { events.push("lifecycle-dispose"); disposer?.(); } }; } }
@@ -214,7 +214,7 @@ test("implementation loads lib/groups.js and passes group labels", async () => {
   f.contextMenu({ type: "group", id: "default" }, menuEvent, anchor);
   const fallback = f.events.at(-1)[3];
   assert.equal(fallback.openInNewTab.disabled, true); assert.equal(fallback.delete.disabled, true);
-  before = f.events.length; fallback.openInNewTab.onCommand();
-  assert.deepEqual(f.events.slice(before), []);
+  before = f.events.length; fallback.openInNewTab.onCommand(); fallback.rename.onCommand();
+  assert.deepEqual(f.events.slice(before), [["prompt", "renameGroupPromptTitle!", "groupNamePrompt!", ""]]);
   f.implementation.onShutdown(true);
 });

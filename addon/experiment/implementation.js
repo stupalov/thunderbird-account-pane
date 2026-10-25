@@ -89,7 +89,7 @@ var accountPane = class extends ExtensionCommon.ExtensionAPI {
           newGroup: { label: labels.newAccountGroup, onCommand: () => newGroup() },
           rename: { label: labels.renameGroup, onCommand: () => {
             const name = adapter.promptGroupName(labels.renameGroupPromptTitle, labels.groupNamePrompt,
-              controller?.groupMenu(id).name ?? "");
+              controller?.groupMenu(id).customName ?? "");
             if (name !== null) controller?.renameGroup(id, name);
           } },
           delete: { label: labels.deleteGroup, disabled: !menu.canDelete, onCommand: () => controller?.deleteGroup(id) } };
