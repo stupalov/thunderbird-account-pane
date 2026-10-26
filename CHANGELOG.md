@@ -2,7 +2,7 @@
 
 User-facing changes are listed newest first. These are beta versions; inclusion here does not imply a published release package or validation on every supported platform.
 
-## Unreleased
+## 0.2.3
 
 - Account rows and group headers have the same height as Thunderbird's folder rows. The height is taken from the folder pane, so it follows the density setting and themes; group headers lose their extra padding.
 - An empty account group's header is aligned with the other headers again: the space of its (invisible) expand arrow is always kept.

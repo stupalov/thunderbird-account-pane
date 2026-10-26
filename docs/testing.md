@@ -1,8 +1,12 @@
-# AccountPane testing journal: 0.1.0–0.2.2
-**Current candidate 0.2.2 (account groups; 0.2.1–0.2.2 only change the "Move to Group" menu indent): 264/264 automated tests pass; the XPI is reproducible.
+# AccountPane testing journal: 0.1.0–0.2.3
+**Current candidate 0.2.3 (account groups; 0.2.1–0.2.3 adjust the "Move to Group" indent, empty-group alignment and row height): 265/265 automated tests pass; the XPI is reproducible.
 Native check: the maintainer's working profile on macOS, Thunderbird 158.0.1, a keyboard-only
 pass on Thunderbird 140.17 ESR and Betterbird 140.13 in the Windows 11 VM, and Thunderbird 158.0.1
 and 153.5.1 ESR on Ubuntu 26.04 aarch64 (see 0.2.0 below).**
+
+## 0.2.3: layout fixes (2026-10-26)
+
+Both checked by the maintainer on macOS, Thunderbird 158.0.1, with test builds before merging. An empty group's header now keeps the expand arrow's slot through a placeholder attribute instead of `[hidden]`; it had moved left of the other headers. Account rows and group headers now take their height from the native folder rows, where group headers had been about 36 px against 26 px. Not checked natively on Windows or Linux.
 
 ## 0.2.0: account groups (2026-10-26)
 
