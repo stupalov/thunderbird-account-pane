@@ -648,6 +648,17 @@ function menuFixture() {
   return { ...f, popupset, extra };
 }
 
+test("Move to Group is iconic only on Windows, where only iconic items are indented", () => {
+  const classOn = os => {
+    const f = menuFixture();
+    if (os) f.Services.appinfo = { OS: os };
+    f.adapter.showAccountContextMenu("a", { button: 2, screenX: 1, screenY: 2 }, {}, f.extra());
+    return f.popup.children[1].getAttribute("class");
+  };
+  assert.equal(classOn("WINNT"), "menu-iconic accountpane-move-menu");
+  for (const os of ["Linux", "Darwin", null]) assert.equal(classOn(os), "accountpane-move-menu");
+});
+
 test("account menu adds a Move to Group submenu and removes it on popuphidden", () => {
   const f = menuFixture();
   assert.equal(f.adapter.showAccountContextMenu("a", { button: 2, screenX: 1, screenY: 2 }, {}, f.extra()), true);

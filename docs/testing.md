@@ -1,5 +1,5 @@
-# AccountPane testing journal: 0.1.0–0.2.0
-**Current candidate 0.2.0 (account groups): 263/263 automated tests pass; the XPI is reproducible.
+# AccountPane testing journal: 0.1.0–0.2.1
+**Current candidate 0.2.1 (account groups; 0.2.1 only fixes the Windows menu indent): 263/263 automated tests pass; the XPI is reproducible.
 Native check: the maintainer's working profile on macOS, Thunderbird 158.0.1, a keyboard-only
 pass on Thunderbird 140.17 ESR and Betterbird 140.13 in the Windows 11 VM, and Thunderbird 158.0.1
 and 153.5.1 ESR on Ubuntu 26.04 aarch64 (see 0.2.0 below).**
@@ -62,8 +62,10 @@ through the Add-ons Manager or the catalogue invalidates that cache itself (`onS
 | Keyboard: Home/End/Up/Down across groups, Left/Right collapse/expand, Enter selects | pass | pass |
 
 Not checked on Windows: drag and drop (no pointer in the harness), Open in New Window, screen
-readers. Cosmetic: in the native account menu the added "Move to Group" label is not indented
-like the native items.
+readers. Cosmetic: in the native account menu the added "Move to Group" label was not indented
+like the native items. Cause: the native items are `menuitem-iconic`, and on Windows only an
+iconic item keeps its (empty) icon slot. Fixed after 0.2.0 by giving the submenu the
+`menu-iconic` class; checked on Thunderbird 140.17 ESR (label aligned with the native items).
 
 ### Linux: Ubuntu 26.04 aarch64, Thunderbird 158.0.1 and 153.5.1 ESR (2026-10-26)
 
