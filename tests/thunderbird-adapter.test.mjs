@@ -648,6 +648,17 @@ function menuFixture() {
   return { ...f, popupset, extra };
 }
 
+test("Move to Group is iconic only on Windows, where only iconic items are indented", () => {
+  const classOn = os => {
+    const f = menuFixture();
+    if (os) f.Services.appinfo = { OS: os };
+    f.adapter.showAccountContextMenu("a", { button: 2, screenX: 1, screenY: 2 }, {}, f.extra());
+    return f.popup.children[1].getAttribute("class");
+  };
+  assert.equal(classOn("WINNT"), "menu-iconic accountpane-move-menu");
+  for (const os of ["Linux", "Darwin", null]) assert.equal(classOn(os), "accountpane-move-menu");
+});
+
 test("account menu adds a Move to Group submenu and removes it on popuphidden", () => {
   const f = menuFixture();
   assert.equal(f.adapter.showAccountContextMenu("a", { button: 2, screenX: 1, screenY: 2 }, {}, f.extra()), true);
@@ -655,8 +666,7 @@ test("account menu adds a Move to Group submenu and removes it on popuphidden", 
   assert.equal(f.popup.children.length, 2);
   assert.equal(separator.tagName, "menuseparator");
   assert.equal(menu.tagName, "menu");
-  // Native account items are iconic; Windows only indents labels next to an icon slot.
-  assert.equal(menu.getAttribute("class"), "menu-iconic accountpane-move-menu");
+  assert.equal(menu.getAttribute("class"), "accountpane-move-menu");
   assert.equal(menu.getAttribute("label"), "Move to Group");
   const items = menu.children[0].children;
   assert.deepEqual(items.map(item => [item.tagName, item.getAttribute("label")]), [["menuitem", "All Accounts"],

@@ -265,8 +265,11 @@ var AccountPaneAdapter = (() => {
 
     function moveMenu({ label, choices, newGroupLabel, onMove, onNewGroup }) {
       const menu = xul("menu"), popup = xul("menupopup");
-      // Match the native iconic items: Windows indents only labels with an icon slot.
-      menu.setAttribute("class", "menu-iconic accountpane-move-menu");
+      // Windows indents only labels with an icon slot, like the native iconic items;
+      // on GTK an iconic menu draws an empty icon box instead.
+      let windows = false;
+      try { windows = Services.appinfo.OS === "WINNT"; } catch {}
+      menu.setAttribute("class", windows ? "menu-iconic accountpane-move-menu" : "accountpane-move-menu");
       menu.setAttribute("label", label);
       for (const choice of choices) {
         popup.append(menuItem(choice.name, () => onMove(choice.id),
