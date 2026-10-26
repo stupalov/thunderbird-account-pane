@@ -1,5 +1,5 @@
-# AccountPane testing journal: 0.1.0–0.2.1
-**Current candidate 0.2.1 (account groups; 0.2.1 only fixes the Windows menu indent): 263/263 automated tests pass; the XPI is reproducible.
+# AccountPane testing journal: 0.1.0–0.2.2
+**Current candidate 0.2.2 (account groups; 0.2.1–0.2.2 only change the "Move to Group" menu indent): 264/264 automated tests pass; the XPI is reproducible.
 Native check: the maintainer's working profile on macOS, Thunderbird 158.0.1, a keyboard-only
 pass on Thunderbird 140.17 ESR and Betterbird 140.13 in the Windows 11 VM, and Thunderbird 158.0.1
 and 153.5.1 ESR on Ubuntu 26.04 aarch64 (see 0.2.0 below).**
@@ -65,7 +65,10 @@ Not checked on Windows: drag and drop (no pointer in the harness), Open in New W
 readers. Cosmetic: in the native account menu the added "Move to Group" label was not indented
 like the native items. Cause: the native items are `menuitem-iconic`, and on Windows only an
 iconic item keeps its (empty) icon slot. Fixed after 0.2.0 by giving the submenu the
-`menu-iconic` class; checked on Thunderbird 140.17 ESR (label aligned with the native items).
+`menu-iconic` class (0.2.1); checked on Thunderbird 140.17 ESR (label aligned with the native items).
+0.2.1 regressed Linux (see the Linux section below); 0.2.2 sets the class on Windows only
+(`Services.appinfo.OS === "WINNT"`). The 0.2.2 code (commit `447e1cd`) was checked on Thunderbird
+140.17 ESR on Windows (still aligned) and on Thunderbird 158.0.1 on Ubuntu (aligned, no icon box).
 
 ### Linux: Ubuntu 26.04 aarch64, Thunderbird 158.0.1 and 153.5.1 ESR (2026-10-26)
 
@@ -148,7 +151,8 @@ Observations:
   `startupCache`. On GTK the class adds an empty checkbox-like icon box in front of "Move to
   Group" and pushes its label to the right of the native labels, so that fix regresses Linux as
   written. With 0.2.0 the label is already aligned on Linux. The profile went back to the 0.2.0
-  release XPI afterwards.
+  release XPI afterwards. The Windows-only variant released as 0.2.2 (commit `447e1cd`) was then
+  checked here on 158.0.1: the label is aligned with the native items, without an icon box.
 
 Not checked on Linux: Thunderbird 140 ESR (no arm64 build), x86_64 builds, the snap or Flatpak
 package as installed and confined, Betterbird, X11 sessions, dark or high-contrast themes, HiDPI
