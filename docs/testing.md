@@ -1,8 +1,68 @@
-# AccountPane testing journal: 0.1.0–0.1.13
-**Current candidate 0.1.13: 195/195 automated tests pass; the XPI is reproducible.
-Native check: Thunderbird 140 ESR and Betterbird 140 on Windows 11 (see 0.1.13 below).
-Thunderbird 157–158 behaviour is covered by the 0.1.9/0.1.10 native checks; the 0.1.13
-change only adds fallbacks for APIs that 157–158 already provide.**
+# AccountPane testing journal: 0.1.0–0.2.0
+**Current candidate 0.2.0 (account groups): 263/263 automated tests pass; the XPI is reproducible.
+Native check: the maintainer's working profile on macOS, Thunderbird 158.0.1, and a keyboard-only
+pass on Thunderbird 140.17 ESR and Betterbird 140.13 in the Windows 11 VM (see 0.2.0 below).**
+
+## 0.2.0: account groups (2026-10-26)
+
+Build: `dist/accountpane-0.2.0.xpi`, SHA-256
+`37a79c37326b78e6cf2c6a98afa3008ae0ab5557fadcb08b74c5a6942de73273`, installed by the maintainer
+with Install Add-on From File… over 0.1.13 in their working macOS profile (Thunderbird 158.0.1),
+followed by a restart. The maintainer ran the checklist below and reported that every item works;
+these are the maintainer's observations, not automated captures.
+
+1. Upgrade from 0.1.13: same account list, selection and collapsed state; All Accounts still
+   shows the full folder tree while no account is in a user group.
+2. New Account Group… from the header menu creates an empty, focused (not selected) group.
+3. Drag onto a group header moves the account; drag between accounts of another group moves
+   and positions it; drag inside a group still reorders accounts.
+4. Account menu → Move to Group moves the account; the current group is checked and disabled.
+5. Selecting a group with several accounts shows their folders under their account rows; a
+   one-account group behaves like a selected account; All Accounts then shows only its members.
+6. A collapsed group shows its members' counters (Spam excluded) and the new-mail star.
+7. Rename… and Delete work; Delete is disabled for All Accounts; an empty name restores the
+   default name.
+8. Open in New Tab / Open in New Window open the group's Inbox, following the background-tab
+   preference and Shift like the native folder menu.
+9. Groups, membership and collapsed state survive a restart and are shared between windows.
+10. Keyboard: arrows move between headers and accounts, Left/Right collapse/expand, Enter
+    selects, the context menu opens from the keyboard.
+11. Optional VoiceOver spot check of the header semantics (part of the reported checklist).
+
+Not checked natively for 0.2.0: Windows keyboard-only pass, Thunderbird 140 ESR / Betterbird 140
+(the Open in New Tab/Window helpers are feature-detected and hidden when missing), adding or
+removing a real account while groups exist (covered by automated tests only).
+
+### Thunderbird 140 ESR and Betterbird 140, keyboard only (2026-10-26)
+
+Same Windows 11 VM and fictional profiles as the 0.1.13 check (three offline POP3 accounts and
+Local Folders), both with 0.1.13 installed and v1 settings. The 0.2.0 XPI above (same SHA-256)
+replaced the installed file with Thunderbird closed. Control through `prlctl send-key-event`
+(Shift+F10 for context menus); captures outside Git in `dist/groups-20261026/`.
+
+Harness note: replacing the XPI on disk updates the add-on record but Thunderbird kept running
+the cached 0.1.13 Experiment scripts until the profile's `startupCache` was removed. An update
+through the Add-ons Manager or the catalogue invalidates that cache itself (`onShutdown`).
+
+| Scenario | TB 140.17 ESR | Betterbird 140.13 |
+| --- | --- | --- |
+| 0.2.0 active after upgrade; v1 selection kept, full tree under All Accounts | pass | pass |
+| Group header menu (Shift+F10): Open in New Tab/Window present, Delete disabled for All Accounts | pass | pass |
+| New Account Group… prompt creates an empty, focused, unselected group | pass | pass |
+| Account menu → Move to Group submenu (current group checked/disabled) moves the account | pass | pass |
+| Selecting a two-account group shows both account roots and opens the first Inbox | pass | not run |
+| Selecting a one-account group behaves like the selected account | not run | pass |
+| All Accounts then shows only its own accounts' folders | pass | pass |
+| Collapsed group header shows the members' unread sum | not run (no unread in members) | pass |
+| Open in New Tab opens the group's Inbox in a foreground tab; groups shared with the new tab | pass | not run |
+| Rename… prefills the current name and renames | pass | not run |
+| Restart keeps groups, membership, collapsed state and selection | pass | not run |
+| Delete returns the accounts to All Accounts and restores the full tree | pass | pass |
+| Keyboard: Home/End/Up/Down across groups, Left/Right collapse/expand, Enter selects | pass | pass |
+
+Not checked on Windows: drag and drop (no pointer in the harness), Open in New Window, screen
+readers. Cosmetic: in the native account menu the added "Move to Group" label is not indented
+like the native items.
 
 ## 0.1.13: Thunderbird 140 ESR and Betterbird 140 (2026-10-24)
 

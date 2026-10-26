@@ -11,6 +11,7 @@ import zipfile
 ALLOWED_FILES = (
     "manifest.json",
     "background.js",
+    "lib/groups.js",
     "lib/model.js",
     "experiment/schema.json",
     "experiment/implementation.js",
@@ -75,8 +76,8 @@ def build(root):
     require(set(manifest) == {"manifest_version", "name", "version", "icons", "default_locale",
                               "description", "permissions", "background",
                               "browser_specific_settings", "experiment_apis"})
-    require(manifest["background"] == {"scripts": ["background.js"]})
-    require(manifest["manifest_version"] == 2 and manifest["version"] == "0.1.13")
+    require(manifest["background"] == {"scripts": ["lib/groups.js", "background.js"]})
+    require(manifest["manifest_version"] == 2 and manifest["version"] == "0.2.0")
     icons = {str(size): f"icons/accountpane-{size}.png" for size in (16, 32, 48, 64, 128)}
     require(manifest["icons"] == icons and all(path in inputs for path in icons.values()))
     require(manifest["default_locale"] == "en" and manifest["permissions"] == ["storage"])
@@ -108,11 +109,13 @@ def build(root):
         messages = data[f"_locales/{locale}/messages.json"]
         for key in message_ids | {"extensionName", "extensionDescription", "accounts", "allAccounts",
                                   "expandAccounts", "collapseAccounts", "unreadCount", "totalCount",
-                                  "newMessages"}:
+                                  "newMessages", "newAccountGroup", "renameGroup", "deleteGroup",
+                                  "openInNewTab", "openInNewWindow", "moveToGroup", "newGroupPromptTitle",
+                                  "renameGroupPromptTitle", "groupNamePrompt", "expandGroup", "collapseGroup"}:
             require(isinstance(messages[key]["message"], str) and bool(messages[key]["message"]))
     output_dir = root / "dist"
     require(not output_dir.is_symlink())
-    output = output_dir / "accountpane-0.1.13.xpi"
+    output = output_dir / "accountpane-0.2.0.xpi"
     require(not output.is_symlink())
     output_dir.mkdir(exist_ok=True)
     temporary = None

@@ -34,6 +34,15 @@ var AccountPaneAdapter = (() => {
       return result;
     }
 
+    function listAccountKeys() {
+      try {
+        const keys = Array.from(MailServices.accounts.accounts, account => account.key);
+        return keys.every(key => typeof key === "string") ? keys : null;
+      } catch {
+        return null;
+      }
+    }
+
     function reorderAccount(movedId, targetId, before) {
       if (disposed || typeof before !== "boolean" || movedId === targetId) return false;
       try {
@@ -241,7 +250,41 @@ var AccountPaneAdapter = (() => {
       }
     }
 
-    function showAccountContextMenu(accountId, event, anchor) {
+    const xul = tag => window.document.createXULElement(tag);
+    function menuItem(label, onCommand, attributes = {}) {
+      const item = xul("menuitem");
+      item.setAttribute("label", label);
+      for (const [name, value] of Object.entries(attributes)) item.setAttribute(name, value);
+      item.addEventListener("command", event => {
+        // Native folderPaneContext dispatches bubbling commands by item id.
+        event.stopPropagation();
+        onCommand(event);
+      });
+      return item;
+    }
+
+    function moveMenu({ label, choices, newGroupLabel, onMove, onNewGroup }) {
+      const menu = xul("menu"), popup = xul("menupopup");
+      menu.setAttribute("class", "accountpane-move-menu");
+      menu.setAttribute("label", label);
+      for (const choice of choices) {
+        popup.append(menuItem(choice.name, () => onMove(choice.id),
+          choice.current ? { type: "radio", checked: "true", disabled: "true" } : { type: "radio" }));
+      }
+      popup.append(xul("menuseparator"), menuItem(newGroupLabel, onNewGroup));
+      menu.append(popup);
+      return [xul("menuseparator"), menu];
+    }
+
+    function openMenu(popup, event, anchor) {
+      if (event.button === 2) {
+        popup.openPopupAtScreen(event.screenX, event.screenY, true);
+      } else {
+        popup.openPopup(anchor, "after_end", 0, 0, true);
+      }
+    }
+
+    function showAccountContextMenu(accountId, event, anchor, extra = null) {
       if (disposed || !listAccounts().some(account => account.id === accountId)) return false;
       const native = window.folderPaneContextMenu;
       const popup = window.document.getElementById("folderPaneContext");
@@ -254,11 +297,12 @@ var AccountPaneAdapter = (() => {
         return false;
       }
       if (!folder) return false;
-      let active = true;
+      let active = true, added = [];
       const finish = (hide = false) => {
         if (!active) return;
         active = false;
         popup.removeEventListener("popuphidden", onHidden);
+        for (const node of added) node.remove();
         cleanups.delete(cleanup);
         if (native._overrideFolder === folder) {
           if (hide) popup.hidePopup();
@@ -276,14 +320,100 @@ var AccountPaneAdapter = (() => {
         native.setOverrideFolder(folder);
         popup.addEventListener("popuphidden", onHidden);
         cleanups.add(cleanup);
-        if (event.button === 2) {
-          popup.openPopupAtScreen(event.screenX, event.screenY, true);
-        } else {
-          popup.openPopup(anchor, "after_end", 0, 0, true);
+        if (extra) {
+          added = moveMenu(extra);
+          popup.append(...added);
         }
+        openMenu(popup, event, anchor);
         return true;
       } catch {
         finish(true);
+        return false;
+      }
+    }
+
+    let groupPopup = null;
+    function removeGroupPopup() {
+      cleanups.delete(removeGroupPopup);
+      const popup = groupPopup;
+      groupPopup = null;
+      if (!popup) return;
+      if (popup.state === "open" || popup.state === "showing") popup.hidePopup();
+      popup.remove();
+    }
+
+    function showGroupContextMenu(event, anchor, items) {
+      if (disposed || !anchor || !items) return false;
+      try {
+        if (!groupPopup) {
+          const popup = xul("menupopup");
+          popup.setAttribute("id", "accountpane-group-context");
+          window.document.querySelector("popupset").append(popup);
+          groupPopup = popup;
+          cleanups.add(removeGroupPopup);
+        }
+        if (groupPopup.state === "open" || groupPopup.state === "showing") groupPopup.hidePopup();
+        const entry = ({ label, disabled, hidden, onCommand }) => menuItem(label, onCommand,
+          { ...disabled ? { disabled: "true" } : {}, ...hidden ? { hidden: "true" } : {} });
+        const separator = xul("menuseparator");
+        if (items.openInNewTab.hidden && items.openInNewWindow.hidden) separator.setAttribute("hidden", "true");
+        groupPopup.replaceChildren(entry(items.openInNewTab), entry(items.openInNewWindow), separator,
+          entry(items.newGroup), entry(items.rename), entry(items.delete));
+        openMenu(groupPopup, event, anchor);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    function promptGroupName(title, text, initial = "") {
+      if (disposed) return null;
+      try {
+        const value = { value: initial };
+        return Services.prompt.prompt(window.top ?? window, title, text, value, null, {}) &&
+          typeof value.value === "string" ? value.value : null;
+      } catch {
+        return null;
+      }
+    }
+
+    // about:3pane's own folder context menu calls these messenger.xhtml helpers
+    // (mailWindowOverlay.js) through its top chrome window.
+    const OPEN_HELPERS = { tab: "MsgOpenNewTabForFolders", window: "MsgOpenNewWindowForFolder" };
+    const chromeWindow = () => window.browsingContext?.topChromeWindow ?? window.top;
+    function canOpenFolder(where) {
+      try {
+        return !disposed && Object.hasOwn(OPEN_HELPERS, where) &&
+          typeof chromeWindow()?.[OPEN_HELPERS[where]] === "function" &&
+          typeof MailServices.folderLookup?.getFolderForURL === "function";
+      } catch {
+        return false;
+      }
+    }
+
+    // Like about3Pane's own Open in New Tab: MsgOpenNewTabForFolders reads
+    // mail.tabs.loadInBackground and flips it on Shift when background is unset.
+    function tabParams(event) {
+      const params = event ? { event } : {};
+      const folderPane = window.paneLayout?.folderPaneSplitter, messagePane = window.paneLayout?.messagePaneSplitter;
+      if (typeof folderPane?.isCollapsed === "boolean" && typeof messagePane?.isCollapsed === "boolean") {
+        Object.assign(params, { folderPaneVisible: !folderPane.isCollapsed, messagePaneVisible: !messagePane.isCollapsed });
+      }
+      return params;
+    }
+
+    function openFolder(uri, where, event = null) {
+      if (typeof uri !== "string" || !canOpenFolder(where)) return false;
+      try {
+        const folder = MailServices.folderLookup.getFolderForURL(uri);
+        if (!folder) return false;
+        if (where === "tab") {
+          chromeWindow().MsgOpenNewTabForFolders([folder], tabParams(event));
+        } else {
+          chromeWindow().MsgOpenNewWindowForFolder(folder.URI, -1);
+        }
+        return true;
+      } catch {
         return false;
       }
     }
@@ -457,9 +587,10 @@ var AccountPaneAdapter = (() => {
         }
       }
     }
-    return { listAccounts, reorderAccount, listFolders, currentFolder, selectedFolders, activeModes, canDisplayFolder,
-      displayFolder, ensureAllFolders, showAccountContextMenu, accountForRow, messageCounts, onMessageCountsChanged,
-      onFolderChanged, onAccountsChanged, onModesChanged, dispose };
+    return { listAccounts, listAccountKeys, reorderAccount, listFolders, currentFolder, selectedFolders, activeModes,
+      canDisplayFolder, displayFolder, ensureAllFolders, showAccountContextMenu, showGroupContextMenu, promptGroupName,
+      canOpenFolder, openFolder, accountForRow, messageCounts, onMessageCountsChanged, onFolderChanged,
+      onAccountsChanged, onModesChanged, dispose };
   }
   return { create };
 })();

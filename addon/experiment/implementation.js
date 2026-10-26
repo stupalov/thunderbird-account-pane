@@ -42,7 +42,7 @@ var accountPane = class extends ExtensionCommon.ExtensionAPI {
     const { ExtensionSupport } = ChromeUtils.importESModule("resource:///modules/ExtensionSupport.sys.mjs");
     const { NetUtil } = ChromeUtils.importESModule("resource://gre/modules/NetUtil.sys.mjs");
     const scope = {};
-    for (const path of ["lib/model.js", "experiment/tree-filter.js", "experiment/account-view.js",
+    for (const path of ["lib/groups.js", "lib/model.js", "experiment/tree-filter.js", "experiment/account-view.js",
       "experiment/controller.js", "experiment/thunderbird-adapter.js", "experiment/lifecycle.js"]) {
       Services.scriptloader.loadSubScriptWithOptions(this.extension.rootURI.resolve(path), {
         target: scope, allowUnsafeURL: true
@@ -62,17 +62,38 @@ var accountPane = class extends ExtensionCommon.ExtensionAPI {
       });
     });
     if (this._disposed || generation !== this._generation || !this._fire) return;
-    const labels = { accounts: this.extension.localeData.localizeMessage("accounts"),
-      allAccounts: this.extension.localeData.localizeMessage("allAccounts"),
-      expandAccounts: this.extension.localeData.localizeMessage("expandAccounts"),
-      collapseAccounts: this.extension.localeData.localizeMessage("collapseAccounts"),
-      unreadCount: this.extension.localeData.localizeMessage("unreadCount"),
-      totalCount: this.extension.localeData.localizeMessage("totalCount"),
-      newMessages: this.extension.localeData.localizeMessage("newMessages") };
+    const labels = Object.fromEntries(["accounts", "allAccounts", "expandAccounts", "collapseAccounts", "unreadCount",
+      "totalCount", "newMessages", "newAccountGroup", "renameGroup", "deleteGroup", "openInNewTab", "openInNewWindow",
+      "moveToGroup", "newGroupPromptTitle", "renameGroupPromptTitle", "groupNamePrompt", "expandGroup", "collapseGroup"]
+      .map(key => [key, this.extension.localeData.localizeMessage(key)]));
     const attachPane = window => {
       if (this._disposed || generation !== this._generation || !this._fire) return () => {};
       let adapter, filter, view, controller;
       let disposed = false;
+      const newGroup = (accountId = null) => {
+        const name = adapter.promptGroupName(labels.newGroupPromptTitle, labels.groupNamePrompt);
+        if (name !== null) controller?.createGroup(name, accountId);
+      };
+      const accountMenu = id => ({ label: labels.moveToGroup, newGroupLabel: labels.newAccountGroup,
+        choices: controller?.groupChoices(id) ?? [], onMove: groupId => controller?.moveAccount(id, groupId),
+        onNewGroup: () => newGroup(id) });
+      const groupMenu = id => {
+        const menu = controller?.groupMenu(id);
+        if (!menu) return null;
+        const open = where => ({ label: where === "tab" ? labels.openInNewTab : labels.openInNewWindow,
+          hidden: !adapter.canOpenFolder(where), disabled: !menu.openTarget, onCommand: event => {
+            const uri = controller?.groupMenu(id).openTarget?.uri;
+            if (uri) adapter.openFolder(uri, where, event);
+          } });
+        return { openInNewTab: open("tab"), openInNewWindow: open("window"),
+          newGroup: { label: labels.newAccountGroup, onCommand: () => newGroup() },
+          rename: { label: labels.renameGroup, onCommand: () => {
+            const name = adapter.promptGroupName(labels.renameGroupPromptTitle, labels.groupNamePrompt,
+              controller?.groupMenu(id).customName ?? "");
+            if (name !== null) controller?.renameGroup(id, name);
+          } },
+          delete: { label: labels.deleteGroup, disabled: !menu.canDelete, onCommand: () => controller?.deleteGroup(id) } };
+      };
       const cleanup = () => {
         if (disposed) return;
         disposed = true;
@@ -86,15 +107,23 @@ var accountPane = class extends ExtensionCommon.ExtensionAPI {
         adapter = scope.AccountPaneAdapter.create({ window, MailServices, Services, Ci, FolderUtils });
         view = scope.AccountPaneView.create({ document: window.document,
           folderPane: window.document.getElementById("folderPane"), labels, cssText,
-          onSelect: id => controller?.selectAccount(id),
-          onContextMenu: (id, event, anchor) => adapter?.showAccountContextMenu(id, event, anchor),
+          onSelect: selection => controller?.select(selection),
+          onContextMenu: (target, event, anchor) => {
+            if (target?.type === "account") {
+              adapter?.showAccountContextMenu(target.id, event, anchor, accountMenu(target.id));
+            } else if (target?.type === "group") {
+              const items = groupMenu(target.id);
+              if (items) adapter?.showGroupContextMenu(event, anchor, items);
+            }
+          },
           onReorder: (movedId, targetId, before) => adapter?.reorderAccount(movedId, targetId, before),
-          onExpandedChanged: value => controller?.setAccountsExpanded(value) });
+          onMove: (accountId, groupId, placement) => controller?.moveAccount(accountId, groupId, placement),
+          onExpandedChanged: (groupId, value) => controller?.setGroupExpanded(groupId, value) });
         filter = scope.AccountPaneTreeFilter.attach({ window,
           tree: window.document.getElementById("folderTree"),
           accountForRow: row => adapter.accountForRow(row), followTarget: id => controller?.followFolder(id) });
         controller = scope.AccountPaneController.create({ adapter, model: scope.AccountPaneModel,
-          filter, view, settings: this._settings, save: patch => {
+          groups: scope.AccountPaneGroups, filter, view, labels, settings: this._settings, save: patch => {
             if (this._disposed || !this._fire) throw new Error("ACCOUNTPANE_LISTENER_UNAVAILABLE");
             // Native fire.async forwards the background listener's persistence Promise.
             return this._fire.async(patch);

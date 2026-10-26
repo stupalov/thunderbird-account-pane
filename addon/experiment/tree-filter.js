@@ -148,7 +148,7 @@ var AccountPaneTreeFilter = (() => {
       row.classList.remove("collapsed");
       row.childList.hidden = false;
     }
-    let selectedAccountId = null;
+    let selected = null;
     let disposed = false;
     let observer;
 
@@ -166,7 +166,7 @@ var AccountPaneTreeFilter = (() => {
     }
 
     function clearRestrictions() {
-      selectedAccountId = null;
+      selected = null;
       for (const row of marked.keys()) { restoreMarker(row); }
       for (const row of flattened.keys()) { restoreFlattened(row); }
       for (const row of indented.keys()) { restoreIndent(row); }
@@ -182,10 +182,13 @@ var AccountPaneTreeFilter = (() => {
       const accounts = new Map([...rows].map(row => [row, accountForRow(row)]));
       const retainedGroups = new Set();
       const roots = new Set();
-      if (selectedAccountId !== null) {
+      const member = row => selected !== null && selected.has(accounts.get(row));
+      // Only a single account is flattened and shortened; several keep roots.
+      const single = selected?.size === 1;
+      if (selected !== null) {
         for (const row of rows) {
-          if (accounts.get(row) === selectedAccountId) {
-            if (row.modeName === "all" && row.dataset?.serverType &&
+          if (member(row)) {
+            if (single && row.modeName === "all" && row.dataset?.serverType &&
                 row.childList && row.childList.children.length > 0) {
               roots.add(row);
             }
@@ -202,14 +205,12 @@ var AccountPaneTreeFilter = (() => {
         }
       }
       for (const row of named.keys()) {
-        if (!rows.has(row) || selectedAccountId === null ||
-            accounts.get(row) !== selectedAccountId || row._nameStyle !== "both") {
+        if (!rows.has(row) || !single || !member(row) || row._nameStyle !== "both") {
           restoreName(row);
         }
       }
       for (const row of rows) {
-        if (selectedAccountId !== null && accounts.get(row) === selectedAccountId &&
-            row._nameStyle === "both") {
+        if (single && member(row) && row._nameStyle === "both") {
           shortenName(row);
         }
       }
@@ -218,15 +219,13 @@ var AccountPaneTreeFilter = (() => {
       }
       for (const row of roots) { flatten(row); }
       for (const row of marked.keys()) {
-        if (!rows.has(row) || selectedAccountId === null ||
-            accounts.get(row) === selectedAccountId || retainedGroups.has(row)) {
+        if (!rows.has(row) || selected === null || member(row) || retainedGroups.has(row)) {
           restoreMarker(row);
         }
       }
       for (const row of rows) {
-        if (selectedAccountId !== null && accounts.get(row) !== selectedAccountId &&
-            !retainedGroups.has(row) && !row.classList?.contains("unselectable") &&
-            row.getAttribute(marker) !== "true") {
+        if (selected !== null && !member(row) && !retainedGroups.has(row) &&
+            !row.classList?.contains("unselectable") && row.getAttribute(marker) !== "true") {
           marked.set(row, row.getAttribute(marker));
           row.setAttribute(marker, "true");
         }
@@ -255,26 +254,28 @@ var AccountPaneTreeFilter = (() => {
       }
     }
 
-    function apply(accountId) {
+    function apply(accountIds) {
       if (!disposed) {
-        selectedAccountId = accountId;
+        const list = typeof accountIds === "string" ? [accountIds] : accountIds;
+        selected = Array.isArray(list) && list.length ? new Set(list) : null;
         refresh();
       }
     }
 
     function synchronize(rows) {
-      if (disposed || selectedAccountId === null || !rows.length) {
+      if (disposed || selected === null || !rows.length) {
         return;
       }
       try {
         const accounts = new Set(rows.map(row => accountForRow(row)));
-        const target = accounts.size === 1 ? accounts.values().next().value : null;
-        if (target !== selectedAccountId) {
-          // Update before the callback as well as before native navigation.
-          // Controller callbacks need not re-enter apply to make rows visible.
-          apply(target);
-          followTarget(target);
+        if ([...accounts].every(account => selected.has(account))) {
+          return;
         }
+        const target = accounts.size === 1 ? accounts.values().next().value : null;
+        // Update before the callback as well as before native navigation.
+        // Controller callbacks need not re-enter apply to make rows visible.
+        apply(target === null ? null : [target]);
+        followTarget(target);
       } catch {
         // Account lookup/controller failures must not block native navigation.
         clearRestrictions();
@@ -285,11 +286,11 @@ var AccountPaneTreeFilter = (() => {
       // Native getter errors retain their native semantics. Only our filtering
       // step can fail open after the native rows have been obtained.
       const rows = hooks[0].native.call(this);
-      if (disposed || selectedAccountId === null) {
+      if (disposed || selected === null) {
         return rows;
       }
       try {
-        return rows.filter(row => !flattened.has(row) && accountForRow(row) === selectedAccountId);
+        return rows.filter(row => !flattened.has(row) && selected.has(accountForRow(row)));
       } catch {
         clearRestrictions();
         try {

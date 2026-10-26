@@ -13,12 +13,13 @@ AccountPane began as an attempt to bring back the way of working with mail that 
 ## Features
 
 - **One account at a time.** A separate account list keeps the folder pane focused on the account you choose. The duplicate account heading disappears from All Folders.
-- **A collapsible account group.** Collapse All Accounts to save space and show its combined message counters.
+- **Account groups.** Keep related accounts together in your own collapsible groups. A collapsed group shows its combined message counters and new-mail star.
 - **Account counters.** See unread and, when enabled in Thunderbird, total message counts. Spam/Junk and its subfolders are excluded from account totals.
 - **Drag to reorder.** Move accounts within the list. The order is saved as Thunderbird's account order.
 - **Familiar folder views.** Use All, Favorites, Unread, Recent, Unified, and Tags. Labels such as “Inbox — Work” become “Inbox” while viewing one account.
+- **Move accounts between groups.** Drag an account onto a group header, or use **Move to Group** in its menu.
 - **Native actions.** Right-click an account for Thunderbird's account context menu. Folder actions remain in the usual folder pane.
-- **New-mail star.** An account shows Thunderbird's new-mail star while any of its folders outside Spam/Junk has new messages. Collapsed All Accounts shows it when any account does.
+- **New-mail star.** An account shows Thunderbird's new-mail star while any of its folders outside Spam/Junk has new messages. A collapsed group shows it when any of its accounts does.
 - **Keyboard navigation.** Navigate the account tree with the arrow keys and select with Enter or Space.
 
 ## Screenshots
@@ -48,18 +49,33 @@ To update, install the new XPI using the same menu. You do not need to remove th
 
 When you install AccountPane, Thunderbird shows "This add-on will have full, unrestricted access to Thunderbird, and your computer." This is not a permission AccountPane chooses; it is the only prompt Thunderbird has for any add-on that uses the Experiment API. AccountPane needs that API because Thunderbird has no WebExtension API for changing the folder pane: the account list can only be added by running code inside Thunderbird's own window, and Thunderbird treats all such code as fully trusted. Every folder-pane add-on built on Experiments shows the same text, whatever it actually does.
 
-What AccountPane actually does with that access: it reads account and folder metadata (names, flags, message counts, the new-mail marker), moves accounts when you drag them, and stores the selected account and folder history in the add-on's local storage. It does not read message bodies or passwords, makes no network requests and sends no telemetry. The source is open and the XPI build is reproducible, so the published file can be compared with the repository.
+What AccountPane actually does with that access: it reads account and folder metadata (names, flags, message counts, the new-mail marker), moves accounts when you drag them, and stores the selected account, folder history and your account groups in the add-on's local storage. It does not read message bodies or passwords, makes no network requests and sends no telemetry. The source is open and the XPI build is reproducible, so the published file can be compared with the repository.
 
 ## Usage
 
 - **Select an account** to show its folders and open its first available folder in Thunderbird's order, usually Inbox. All Folders is enabled if necessary; your other folder views stay enabled.
 - **Select All Accounts** to show the full tree while keeping the current folder open.
-- **Click the arrow beside All Accounts** to collapse or expand the account list. This does not change the selected account or open folder. Combined counters appear when the group is collapsed.
+- **Click the arrow beside a group** to collapse or expand its accounts. This does not change the selected account or open folder. Combined counters appear when the group is collapsed.
 - **Drag an account above or below another** to change its order. This changes Thunderbird's account order across mail tabs, not just this panel.
 - **Right-click an account** to open its native context menu without switching the open folder.
+- **Right-click a group header** (or press the context-menu key, Shift+F10 on Windows/Linux, on a row) for the group menu; see [Account groups](#account-groups).
 - **Use the keyboard:** Up/Down and Home/End move focus; Left/Right collapse, expand, or move between tree levels; Enter/Space select; Tab moves to the next control.
 
 For a selected account, combined Unified/Tags rows that span accounts are hidden. Select All Accounts to restore the complete view.
+
+### Account groups
+
+**All Accounts** is the default group. While no account is in a group of your own, selecting it shows the full folder tree as before; once accounts are in your groups, it shows only the folders of the accounts it still contains.
+
+- **Create a group:** right-click a group header and choose **New Account Group…**, or choose **Move to Group → New Account Group…** in an account's menu, which creates the group and moves that account into it.
+- **Move an account:** drag it onto a group header, or drag it between the accounts of another group to move it and place it there. Dragging within a group still reorders accounts. **Move to Group** in the account menu lists all groups.
+- **Select a group** to show the folders of its accounts. With several accounts, each account's root row stays in the folder pane. Group headers are always shown, even with one or no accounts; an empty group cannot be selected.
+- **Group menu:** **Open in New Tab** and **Open in New Window** open the group's first available Inbox, or the first folder of the first account when no member has one (the window entry is hidden when your Thunderbird version lacks the native helper). **Rename…** works for every group; the default group can be renamed too, and an empty name restores "All Accounts". **Delete** is shown disabled for All Accounts; it returns the group's accounts to All Accounts and does not touch any mail.
+- **Collapsed groups** show the sum of their accounts' counters and the new-mail star.
+- **Keyboard:** press the context-menu key (Shift+F10 on Windows/Linux) on a group or account row to open its menu.
+- **Limits:** Search Messages… and Settings… are not offered for groups, since Thunderbird's search and account settings work on a single folder or account; use the account menu for them. There are no nested groups, and groups cannot be reordered yet.
+
+Groups (names, order, membership, collapsed state) are stored locally and shared by all windows; the selected group or account stays per tab or window. Settings migrate automatically from 0.1.x. Hidden accounts keep their group, removed accounts drop out, and new accounts land in All Accounts.
 
 ### Message counters
 

@@ -93,6 +93,11 @@
   appearance: none;
 }
 
+/* An empty group keeps the disclosure's space so names stay aligned. */
+#accountpane-list .accountpane-disclosure[hidden] {
+  visibility: hidden;
+}
+
 #accountpane-list .accountpane-disclosure-icon {
   display: block;
   width: 12px;
@@ -233,4 +238,9 @@
 
 #accountpane-list .accountpane-row[data-accountpane-drop="after"] {
   box-shadow: inset 0 -2px var(--primary, AccentColor);
+}
+
+#accountpane-list .accountpane-row[data-accountpane-drop="into"] {
+  outline: 2px solid var(--treeitem-background-active, Highlight);
+  outline-offset: -2px;
 }

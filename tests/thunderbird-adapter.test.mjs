@@ -473,12 +473,13 @@ test("native tree loss of all selected-account rows clears the real controller w
   const f = fixture();
   const Model = loadScript("addon/lib/model.js", "AccountPaneModel");
   const Controller = loadScript("addon/experiment/controller.js", "AccountPaneController");
+  const groups = loadScript("addon/lib/groups.js", "AccountPaneGroups");
   const rows = new Map(f.adapter.listFolders("a").map(folder => [folder.uri, { uri: folder.uri }]));
   f.window.folderPane.getRowForFolder = uri => rows.get(uri) ?? null;
   const restrictions = [], selections = [], saved = [];
-  const controller = Controller.create({ adapter: f.adapter, model: Model, settings: {},
+  const controller = Controller.create({ adapter: f.adapter, model: Model, groups, settings: {},
     filter: { apply(id) { restrictions.push(id); } },
-    view: { setExpanded() {}, render(accounts, id) { selections.push(id); } },
+    view: { setCollapsed() {}, render(groups, selection) { selections.push(selection.type === "account" ? selection.id : null); } },
     save(patch) { saved.push(structuredClone(patch)); }
   });
   assert.equal(selections.at(-1), "a");
@@ -489,7 +490,8 @@ test("native tree loss of all selected-account rows clears the real controller w
   f.flush();
   assert.equal(restrictions.at(-1), null);
   assert.equal(selections.at(-1), null);
-  assert.deepEqual(saved, [{ selectedAccountId: null }]);
+  // Startup prunes membership against every native account key, hidden ones included.
+  assert.deepEqual(saved, [{ pruneMembership: { accountIds: ["b", "a", "local", "im", "deferred", "hidden"] } }, { selectedGroupId: null, selectedAccountId: null }]);
   assert.deepEqual(Array.from(f.adapter.listAccounts(), account => account.id), ["b", "a", "local"]);
   assert.deepEqual(Array.from(f.adapter.activeModes()), ["all", "favorite"]);
   assert.equal(f.adapter.currentFolder().uri, "fixture://a/RenamedInbox");
@@ -504,6 +506,7 @@ test("native same-account multiple selection survives tree refresh but removed s
   const f = fixture();
   const Model = loadScript("addon/lib/model.js", "AccountPaneModel");
   const Controller = loadScript("addon/experiment/controller.js", "AccountPaneController");
+  const groups = loadScript("addon/lib/groups.js", "AccountPaneGroups");
   const tree = f.window.document.getElementById("folderTree");
   const rows = [f.inbox, f.archive].map(folder => ({ uri: folder.URI,
     dataset: { serverKey: folder.server.key } }));
@@ -511,8 +514,8 @@ test("native same-account multiple selection survives tree refresh but removed s
   tree.selection = new Set(rows);
   f.window.folderPane.getRowForFolder = uri => tree.rows.find(row => row.uri === uri) ?? null;
   const selections = [], saved = [];
-  const controller = Controller.create({ adapter: f.adapter, model: Model, settings: {},
-    filter: { apply() {} }, view: { setExpanded() {}, render(accounts, id) { selections.push(id); } },
+  const controller = Controller.create({ adapter: f.adapter, model: Model, groups, settings: {},
+    filter: { apply() {} }, view: { setCollapsed() {}, render(groups, selection) { selections.push(selection.type === "account" ? selection.id : null); } },
     save(patch) { saved.push(structuredClone(patch)); }
   });
   // about3Pane._onSelect clears gFolder and emits folderURIChanged for size > 1.
@@ -525,13 +528,13 @@ test("native same-account multiple selection survives tree refresh but removed s
   assert.deepEqual(f.displays, [], "valid native multiple selection must not open a single folder");
   assert.deepEqual([...tree.selection], rows);
   assert.equal(selections.at(-1), "a");
-  assert.deepEqual(saved, []);
+  assert.deepEqual(saved, [{ pruneMembership: { accountIds: ["b", "a", "local", "im", "deferred", "hidden"] } }]);
   // A detached selected row is a real loss, even if another valid row remains.
   tree.rows = tree.rows.filter(row => row !== rows[1]);
   for (const observer of f.observers) { observer.callback(mutation); }
   f.flush();
   assert.deepEqual(f.displays.map(display => display.uri), ["fixture://a/RenamedInbox"]);
-  assert.deepEqual(saved, [], "recovery intent must not fabricate history");
+  assert.deepEqual(saved, [{ pruneMembership: { accountIds: ["b", "a", "local", "im", "deferred", "hidden"] } }], "recovery intent must not fabricate history");
   controller.dispose(); f.adapter.dispose();
 });
 
@@ -615,6 +618,172 @@ test("context disposal does not close or clear another owner's native override",
   assert.equal(f.native._overrideFolder, other);
   assert.ok(!f.calls.some(call => call[0] === "hide" || call[0] === "clear"));
   assert.equal(f.listeners.size, 0);
+});
+
+function makeElement(tag) {
+  const listeners = new Map();
+  return { tagName: tag, attributes: new Map(), children: [], parent: null, state: "closed", opened: [],
+    openPopupAtScreen(...args) { this.opened.push(["mouse", ...args]); },
+    openPopup(...args) { this.opened.push(["keyboard", ...args]); },
+    hidePopup() { this.opened.push(["hide"]); },
+    setAttribute(name, value) { this.attributes.set(name, String(value)); },
+    getAttribute(name) { return this.attributes.get(name) ?? null; },
+    append(...nodes) { for (const node of nodes) { node.remove(); node.parent = this; this.children.push(node); } },
+    replaceChildren(...nodes) { for (const child of [...this.children]) child.remove(); this.append(...nodes); },
+    remove() { if (this.parent) this.parent.children.splice(this.parent.children.indexOf(this), 1); this.parent = null; },
+    addEventListener(type, fn) { const set = listeners.get(type) ?? new Set(); set.add(fn); listeners.set(type, set); },
+    removeEventListener(type, fn) { listeners.get(type)?.delete(fn); },
+    command() { const event = { stopped: false, stopPropagation() { this.stopped = true; } };
+      for (const fn of listeners.get("command") ?? []) fn(event); return event; } };
+}
+
+function menuFixture() {
+  const f = contextFixture(), popupset = makeElement("popupset");
+  Object.assign(f.popup, { children: [], append: makeElement("menupopup").append });
+  f.window.document.createXULElement = makeElement;
+  f.window.document.querySelector = selector => selector === "popupset" ? popupset : null;
+  const extra = (log = []) => ({ label: "Move to Group", newGroupLabel: "New Account Group…",
+    choices: [{ id: "default", name: "All Accounts", current: true }, { id: "g-1", name: "Work", current: false }],
+    onMove: id => log.push(["move", id]), onNewGroup: () => log.push(["new"]) });
+  return { ...f, popupset, extra };
+}
+
+test("account menu adds a Move to Group submenu and removes it on popuphidden", () => {
+  const f = menuFixture();
+  assert.equal(f.adapter.showAccountContextMenu("a", { button: 2, screenX: 1, screenY: 2 }, {}, f.extra()), true);
+  const [separator, menu] = f.popup.children;
+  assert.equal(f.popup.children.length, 2);
+  assert.equal(separator.tagName, "menuseparator");
+  assert.equal(menu.tagName, "menu");
+  assert.equal(menu.getAttribute("class"), "accountpane-move-menu");
+  assert.equal(menu.getAttribute("label"), "Move to Group");
+  const items = menu.children[0].children;
+  assert.deepEqual(items.map(item => [item.tagName, item.getAttribute("label")]), [["menuitem", "All Accounts"],
+    ["menuitem", "Work"], ["menuseparator", null], ["menuitem", "New Account Group…"]]);
+  for (const fn of [...f.listeners]) fn({ target: menu.children[0] });
+  assert.equal(f.popup.children.length, 2);
+  for (const fn of [...f.listeners]) fn({ target: f.popup });
+  assert.deepEqual(f.popup.children, []);
+  f.adapter.showAccountContextMenu("a", { button: 2 }, {}, f.extra());
+  f.adapter.dispose();
+  assert.deepEqual(f.popup.children, []);
+  const plain = menuFixture();
+  plain.adapter.showAccountContextMenu("a", { button: 2 }, {});
+  assert.deepEqual(plain.popup.children, []);
+});
+
+test("choosing a group calls onMove; the current group is disabled", () => {
+  const f = menuFixture(), log = [];
+  f.adapter.showAccountContextMenu("a", { button: 2 }, {}, f.extra(log));
+  const [current, work, , create] = f.popup.children[1].children[0].children;
+  assert.equal(current.getAttribute("checked"), "true");
+  assert.equal(current.getAttribute("disabled"), "true");
+  assert.equal(work.getAttribute("disabled"), null);
+  assert.equal(work.command().stopped, true);
+  create.command();
+  assert.deepEqual(log, [["move", "g-1"], ["new"]]);
+});
+
+test("group menu is created once, opens at the pointer or anchor, and is removed on dispose", () => {
+  const f = menuFixture(), log = [], anchor = {};
+  const item = (name, extra = {}) => ({ label: name, onCommand: () => log.push(name), ...extra });
+  const items = { openInNewTab: item("tab", { disabled: true }), openInNewWindow: item("window", { hidden: true }),
+    newGroup: item("new"), rename: item("rename"), delete: item("delete") };
+  let creations = 0;
+  f.window.document.createXULElement = tag => { if (tag === "menupopup") creations++; return makeElement(tag); };
+  assert.equal(f.adapter.showGroupContextMenu({ button: 2, screenX: 5, screenY: 6 }, anchor, items), true);
+  assert.equal(f.adapter.showGroupContextMenu({ button: 0 }, anchor, items), true);
+  const popup = f.popupset.children[0];
+  assert.equal(creations, 1);
+  assert.equal(f.popupset.children.length, 1);
+  assert.equal(popup.getAttribute("id"), "accountpane-group-context");
+  assert.deepEqual(popup.opened, [["mouse", 5, 6, true], ["keyboard", anchor, "after_end", 0, 0, true]]);
+  assert.deepEqual(popup.children.map(node => [node.tagName, node.getAttribute("label")]), [["menuitem", "tab"],
+    ["menuitem", "window"], ["menuseparator", null], ["menuitem", "new"], ["menuitem", "rename"], ["menuitem", "delete"]]);
+  assert.equal(popup.children[0].getAttribute("disabled"), "true");
+  assert.equal(popup.children[1].getAttribute("hidden"), "true");
+  for (const node of popup.children.filter(node => node.tagName === "menuitem")) node.command();
+  assert.deepEqual(log, ["tab", "window", "new", "rename", "delete"]);
+  let received;
+  f.adapter.showGroupContextMenu({ button: 0 }, anchor, { ...items, openInNewTab: { label: "tab",
+    onCommand: event => { received = event; } } });
+  const commandEvent = popup.children[0].command();
+  assert.equal(received, commandEvent);
+  assert.equal(popup.children[2].getAttribute("hidden"), null);
+  f.adapter.showGroupContextMenu({ button: 0 }, anchor, { ...items, openInNewTab: item("tab", { hidden: true }) });
+  assert.equal(popup.children[2].getAttribute("hidden"), "true");
+  popup.state = "open";
+  f.adapter.dispose();
+  assert.deepEqual(f.popupset.children, []);
+  assert.deepEqual(popup.opened.at(-1), ["hide"]);
+  assert.equal(f.adapter.showGroupContextMenu({ button: 0 }, anchor, items), false);
+});
+
+test("group menu creation is retried after a missing popupset", () => {
+  const f = menuFixture(), anchor = {}, item = { label: "x", onCommand() {} };
+  const items = { openInNewTab: item, openInNewWindow: item, newGroup: item, rename: item, delete: item };
+  f.window.document.querySelector = () => null;
+  assert.equal(f.adapter.showGroupContextMenu({ button: 0 }, anchor, items), false);
+  f.window.document.querySelector = selector => selector === "popupset" ? f.popupset : null;
+  assert.equal(f.adapter.showGroupContextMenu({ button: 0 }, anchor, items), true);
+  assert.equal(f.popupset.children.length, 1);
+  assert.equal(f.popupset.children[0].opened.length, 1);
+  f.adapter.dispose();
+  assert.deepEqual(f.popupset.children, []);
+});
+
+test("promptGroupName returns the text, null on cancel or exception", () => {
+  const f = fixture(), calls = [];
+  f.window.top = { name: "messenger" };
+  let answer = true;
+  f.Services.prompt = { prompt(parent, title, text, value, check, checkValue) {
+    calls.push([parent, title, text, value.value, check, checkValue]); value.value = "Work"; return answer; } };
+  assert.equal(f.adapter.promptGroupName("Title", "Name:", "Old"), "Work");
+  assert.deepEqual(structuredClone(calls), [[f.window.top, "Title", "Name:", "Old", null, {}]]);
+  assert.equal(calls[0][0], f.window.top);
+  answer = false;
+  assert.equal(f.adapter.promptGroupName("Title", "Name:"), null);
+  assert.equal(calls[1][3], "");
+  f.Services.prompt.prompt = () => { throw Error("prompt failed"); };
+  assert.equal(f.adapter.promptGroupName("Title", "Name:"), null);
+});
+
+test("openFolder uses the native tab and window helpers and fails closed when missing", () => {
+  const f = fixture(), calls = [], folder = { URI: "fixture://a/Inbox" };
+  f.MailServices.folderLookup = { getFolderForURL: uri => uri === folder.URI ? folder : null };
+  f.window.top = { MsgOpenNewTabForFolders: (...args) => calls.push(["tab", ...args]),
+    MsgOpenNewWindowForFolder: (...args) => calls.push(["window", ...args]) };
+  assert.equal(f.adapter.canOpenFolder("tab"), true);
+  assert.equal(f.adapter.canOpenFolder("window"), true);
+  assert.equal(f.adapter.canOpenFolder("elsewhere"), false);
+  assert.equal(f.adapter.openFolder(folder.URI, "tab"), true);
+  assert.equal(f.adapter.openFolder(folder.URI, "window"), true);
+  assert.equal(f.adapter.openFolder("fixture://gone", "tab"), false);
+  assert.deepEqual(structuredClone(calls), [["tab", [folder], {}], ["window", folder.URI, -1]]);
+  assert.equal(calls[0][1][0], folder);
+  const shift = { shiftKey: true };
+  assert.equal(f.adapter.openFolder(folder.URI, "tab", shift), true);
+  assert.equal(calls[2][2].event, shift);
+  assert.equal("background" in calls[2][2], false);
+  f.window.paneLayout = { folderPaneSplitter: { isCollapsed: true }, messagePaneSplitter: { isCollapsed: false } };
+  assert.equal(f.adapter.openFolder(folder.URI, "tab", shift), true);
+  assert.deepEqual(structuredClone(calls[3][2]), { event: shift, folderPaneVisible: false, messagePaneVisible: true });
+  calls.splice(2);
+  delete f.window.top.MsgOpenNewWindowForFolder;
+  assert.equal(f.adapter.canOpenFolder("window"), false);
+  assert.equal(f.adapter.openFolder(folder.URI, "window"), false);
+  f.window.top.MsgOpenNewTabForFolders = () => { throw Error("tab failed"); };
+  assert.equal(f.adapter.openFolder(folder.URI, "tab"), false);
+  delete f.MailServices.folderLookup;
+  assert.equal(f.adapter.canOpenFolder("tab"), false);
+  assert.equal(calls.length, 2);
+});
+
+test("listAccountKeys includes hidden accounts and returns null on failure", () => {
+  const f = fixture();
+  assert.deepEqual([...f.adapter.listAccountKeys()], ["b", "a", "local", "im", "deferred", "hidden"]);
+  Object.defineProperty(f.MailServices.accounts, "accounts", { get() { throw Error("unavailable"); } });
+  assert.equal(f.adapter.listAccountKeys(), null);
 });
 
 test("account reorder persists native complete order while preserving hidden account slots", () => {
