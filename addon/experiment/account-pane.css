@@ -94,8 +94,9 @@
 }
 
 /* An empty group keeps the disclosure's space so names stay aligned. */
-#accountpane-list .accountpane-disclosure[hidden] {
+#accountpane-list .accountpane-disclosure[data-accountpane-placeholder] {
   visibility: hidden;
+  pointer-events: none;
 }
 
 #accountpane-list .accountpane-disclosure-icon {
