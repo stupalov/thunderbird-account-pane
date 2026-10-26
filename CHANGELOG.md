@@ -2,6 +2,10 @@
 
 User-facing changes are listed newest first. These are beta versions; inclusion here does not imply a published release package or validation on every supported platform.
 
+## Unreleased
+
+- Linux and macOS: the "Move to Group" item looks as in 0.2.0 again. The 0.2.1 indent fix is now applied on Windows only; on Linux (GTK) it drew an empty icon box and an extra indent.
+
 ## 0.2.1
 
 - Windows: the "Move to Group" item in the account context menu is now indented like Thunderbird's own items.
