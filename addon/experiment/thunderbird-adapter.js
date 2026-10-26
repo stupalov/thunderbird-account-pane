@@ -265,7 +265,8 @@ var AccountPaneAdapter = (() => {
 
     function moveMenu({ label, choices, newGroupLabel, onMove, onNewGroup }) {
       const menu = xul("menu"), popup = xul("menupopup");
-      menu.setAttribute("class", "accountpane-move-menu");
+      // Match the native iconic items: Windows indents only labels with an icon slot.
+      menu.setAttribute("class", "menu-iconic accountpane-move-menu");
       menu.setAttribute("label", label);
       for (const choice of choices) {
         popup.append(menuItem(choice.name, () => onMove(choice.id),

@@ -2,6 +2,10 @@
 
 User-facing changes are listed newest first. These are beta versions; inclusion here does not imply a published release package or validation on every supported platform.
 
+## Unreleased
+
+- Windows: the "Move to Group" item in the account context menu is now indented like Thunderbird's own items.
+
 ## 0.2.0
 
 - Account groups. **All Accounts** is now the default group; create your own groups with **New Account Group…** and keep related accounts together. Each group header can be collapsed and shows the sum of its accounts' counters and the new-mail star while collapsed.

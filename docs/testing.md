@@ -61,8 +61,10 @@ through the Add-ons Manager or the catalogue invalidates that cache itself (`onS
 | Keyboard: Home/End/Up/Down across groups, Left/Right collapse/expand, Enter selects | pass | pass |
 
 Not checked on Windows: drag and drop (no pointer in the harness), Open in New Window, screen
-readers. Cosmetic: in the native account menu the added "Move to Group" label is not indented
-like the native items.
+readers. Cosmetic: in the native account menu the added "Move to Group" label was not indented
+like the native items. Cause: the native items are `menuitem-iconic`, and on Windows only an
+iconic item keeps its (empty) icon slot. Fixed after 0.2.0 by giving the submenu the
+`menu-iconic` class; checked on Thunderbird 140.17 ESR (label aligned with the native items).
 
 ## 0.1.13: Thunderbird 140 ESR and Betterbird 140 (2026-10-24)
 

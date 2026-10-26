@@ -655,7 +655,8 @@ test("account menu adds a Move to Group submenu and removes it on popuphidden", 
   assert.equal(f.popup.children.length, 2);
   assert.equal(separator.tagName, "menuseparator");
   assert.equal(menu.tagName, "menu");
-  assert.equal(menu.getAttribute("class"), "accountpane-move-menu");
+  // Native account items are iconic; Windows only indents labels next to an icon slot.
+  assert.equal(menu.getAttribute("class"), "menu-iconic accountpane-move-menu");
   assert.equal(menu.getAttribute("label"), "Move to Group");
   const items = menu.children[0].children;
   assert.deepEqual(items.map(item => [item.tagName, item.getAttribute("label")]), [["menuitem", "All Accounts"],
