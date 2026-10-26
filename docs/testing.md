@@ -1,5 +1,5 @@
-# AccountPane testing journal: 0.1.0–0.2.0
-**Current candidate 0.2.0 (account groups): 263/263 automated tests pass; the XPI is reproducible.
+# AccountPane testing journal: 0.1.0–0.2.1
+**Current candidate 0.2.1 (account groups; 0.2.1 only fixes the Windows menu indent): 263/263 automated tests pass; the XPI is reproducible.
 Native check: the maintainer's working profile on macOS, Thunderbird 158.0.1, and a keyboard-only
 pass on Thunderbird 140.17 ESR and Betterbird 140.13 in the Windows 11 VM (see 0.2.0 below).**
 
