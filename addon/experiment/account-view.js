@@ -57,6 +57,18 @@ var AccountPaneView = (() => {
     let dragState = null;
     let suppressClick = false;
 
+    // Rows match the native folder rows, whatever density or theme sets their height.
+    function syncRowHeight() {
+      const rows = document.querySelectorAll?.("#folderTree li:not([data-server-type]) > .container") ?? [];
+      for (const row of rows) {
+        const height = row.getBoundingClientRect?.().height;
+        if (Number.isFinite(height) && height > 0) {
+          list.style.setProperty("--accountpane-row-height", `${height}px`);
+          return;
+        }
+      }
+    }
+
     function syncHeadingStyle() {
       const nativeHeading = document.querySelector?.("#folderTree .mode-name");
       const getComputedStyle = document.defaultView?.getComputedStyle;
@@ -409,6 +421,7 @@ var AccountPaneView = (() => {
       setTabStop(restored || selectedEntry || fallback || headers[0]);
       updateCounts(lastCounts);
       syncHeadingStyle();
+      syncRowHeight();
       if (previouslyFocused) {
         const focusTarget = restored ? visibleEntries().includes(restored) ? restored : restored.header :
           fallback || headers[0];
