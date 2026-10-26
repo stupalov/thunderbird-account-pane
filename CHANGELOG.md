@@ -2,7 +2,7 @@
 
 User-facing changes are listed newest first. These are beta versions; inclusion here does not imply a published release package or validation on every supported platform.
 
-## Unreleased
+## 0.2.1
 
 - Windows: the "Move to Group" item in the account context menu is now indented like Thunderbird's own items.
 
