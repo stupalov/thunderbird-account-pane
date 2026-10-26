@@ -209,6 +209,22 @@ test("heading matches the live native mode heading and leaves host layout intact
   assert.equal(f.document.head.children[0].textContent, "/* fixture CSS */");
 });
 
+test("rows take the height of the first visible native folder row", () => {
+  const f = fixture();
+  const hidden = { getBoundingClientRect: () => ({ height: 0 }) };
+  const folder = { getBoundingClientRect: () => ({ height: 27.5 }) };
+  let asked = null;
+  f.document.querySelectorAll = selector => { asked = selector; return [hidden, folder]; };
+  show(f, accounts, null);
+  assert.equal(asked, "#folderTree li:not([data-server-type]) > .container");
+  const list = f.document.getElementById("accountpane-list");
+  assert.equal(list.style.getPropertyValue("--accountpane-row-height"), "27.5px");
+  folder.getBoundingClientRect = () => ({ height: 0 });
+  show(f, accounts, null);
+  // Without a visible folder row the last measured height stays.
+  assert.equal(list.style.getPropertyValue("--accountpane-row-height"), "27.5px");
+});
+
 test("names stay literal while the disclosure uses the native image and owned SVGs distinguish account types", () => {
   const f = fixture();
   show(f, [{ ...accounts[0], name: '<img src=x onerror="throw 1"> #fixture' }, accounts[1]], "a");
