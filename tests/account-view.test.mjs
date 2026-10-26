@@ -644,7 +644,8 @@ test("with only the default group the DOM matches 0.1.13", () => {
   assert.deepEqual(items.slice(1).map(item => [item.getAttribute("class"), item.getAttribute("aria-level")]),
     [["accountpane-child", "2"], ["accountpane-child", "2"]]);
   const disclosure = part(items[0], "accountpane-disclosure");
-  assert.equal(disclosure.hidden, false);
+  assert.equal(disclosure.getAttribute("data-accountpane-placeholder"), null);
+  assert.equal(disclosure.getAttribute("aria-hidden"), null);
   assert.equal(disclosure.getAttribute("aria-label"), "Collapse accounts");
   assert.equal(rowText(items[0]), "All Accounts");
 });
@@ -687,7 +688,11 @@ test("empty group header focuses without selecting and has no aria-expanded", ()
   showGroups(f);
   const empty = treeItems(f)[5];
   assert.equal(empty.getAttribute("aria-expanded"), null);
-  assert.equal(part(empty, "accountpane-disclosure").hidden, true);
+  // The disclosure stays in the layout as an invisible placeholder, never [hidden].
+  const placeholder = part(empty, "accountpane-disclosure");
+  assert.equal(placeholder.hidden, false);
+  assert.equal(placeholder.getAttribute("data-accountpane-placeholder"), "");
+  assert.equal(placeholder.getAttribute("aria-hidden"), "true");
   part(empty, "accountpane-name").dispatch("click");
   assert.equal(f.document.activeElement, empty);
   for (const key of ["Enter", " ", "ArrowRight", "ArrowLeft"]) {

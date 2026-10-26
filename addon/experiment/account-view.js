@@ -155,7 +155,11 @@ var AccountPaneView = (() => {
       if (header.empty) header.option.removeAttribute("aria-expanded");
       else header.option.setAttribute("aria-expanded", String(expanded));
       header.group.hidden = !expanded;
-      header.disclosure.hidden = header.empty;
+      // Not the hidden attribute: a placeholder keeps its slot under any stylesheet.
+      for (const [name, value] of [["data-accountpane-placeholder", ""], ["aria-hidden", "true"]]) {
+        if (header.empty) header.disclosure.setAttribute(name, value);
+        else header.disclosure.removeAttribute(name);
+      }
       const template = multiple ? expanded ? labels.collapseGroup : labels.expandGroup :
         expanded ? labels.collapseAccounts : labels.expandAccounts;
       const label = multiple ? (template ?? "").replace("{name}", () => header.name) : template;
