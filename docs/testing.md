@@ -1,7 +1,8 @@
 # AccountPane testing journal: 0.1.0–0.2.1
 **Current candidate 0.2.1 (account groups; 0.2.1 only fixes the Windows menu indent): 263/263 automated tests pass; the XPI is reproducible.
-Native check: the maintainer's working profile on macOS, Thunderbird 158.0.1, and a keyboard-only
-pass on Thunderbird 140.17 ESR and Betterbird 140.13 in the Windows 11 VM (see 0.2.0 below).**
+Native check: the maintainer's working profile on macOS, Thunderbird 158.0.1, a keyboard-only
+pass on Thunderbird 140.17 ESR and Betterbird 140.13 in the Windows 11 VM, and Thunderbird 158.0.1
+and 153.5.1 ESR on Ubuntu 26.04 aarch64 (see 0.2.0 below).**
 
 ## 0.2.0: account groups (2026-10-26)
 
@@ -65,6 +66,95 @@ readers. Cosmetic: in the native account menu the added "Move to Group" label wa
 like the native items. Cause: the native items are `menuitem-iconic`, and on Windows only an
 iconic item keeps its (empty) icon slot. Fixed after 0.2.0 by giving the submenu the
 `menu-iconic` class; checked on Thunderbird 140.17 ESR (label aligned with the native items).
+
+### Linux: Ubuntu 26.04 aarch64, Thunderbird 158.0.1 and 153.5.1 ESR (2026-10-26)
+
+First native check on Linux. Parallels VM "Ubuntu ARM64": Ubuntu 26.04.1 LTS, kernel
+7.0.0-38-generic (aarch64), GNOME Shell 50.1 on Wayland, US keyboard layout, screen set to
+1440×900 for the check. Captures outside Git in `dist/linux-20261026/`.
+
+Builds. archive.mozilla.org has no Linux aarch64 build of Thunderbird (only `linux-x86_64` and
+`linux-i686` for 140.17.0esr and 158.0.1), and ESR 140 is no longer offered for arm64 at all.
+The arm64 builds came from Mozilla's Snap Store package `thunderbird` (snap-id
+`k1Ml1O9GzSO2QftV0ZlWSbUfQ78nN460`), fetched without root with `snap download`:
+
+- `latest/stable`, revision 1300: Thunderbird 158.0.1, BuildID 20261020100829, source stamp
+  `fa5eda18cb048269b5c9d60db4f2f191d01aefb1`.
+- `esr/stable`, revision 1302: Thunderbird 153.5.1 ESR, BuildID 20261020172110, source stamp
+  `2408af54fc4638c52914af99e9085aa291af0410`.
+
+Each `.snap` matches the `snap-sha3-384` in the store's `snap-revision` assertion downloaded
+with it (`Mb-S4uI9…DcyO` and `ibyN9EOE…uVzz`); the assertion signatures were not verified,
+because `snap ack` needs root. The snaps were not installed: they were unpacked with
+`unsquashfs` (from `apt download squashfs-tools`) into a user folder and started directly
+(`thunderbird-bin -no-remote -profile …`, `LD_LIBRARY_PATH` set to the bundled library folder).
+That runs the same Gecko build without snap confinement and without the snap launcher. Updates
+are disabled by the build's own `distribution/policies.json` (`DisableAppUpdate`).
+
+Profiles. One disposable profile per build, generated from scratch: three POP3 accounts (Alpha
+Studio, Beta Home, Gamma Club) and Local Folders, fictional mbox messages, `.invalid` addresses.
+Alpha and Beta point at unresolvable `.invalid` hosts and never fetch mail. Gamma points at a
+throwaway POP3 server on 127.0.0.1 inside the VM that serves fictional `.eml` files and accepts
+any password, so the new-mail star could be triggered without any network. No real mail or
+credentials. The 0.2.0 XPI from the GitHub release (`gh release download v0.2.0`, SHA-256
+`37a79c37326b78e6cf2c6a98afa3008ae0ab5557fadcb08b74c5a6942de73273`, same as above) was installed
+in each profile through the Add-ons Manager (gear, Install Add-on From File…, GTK file chooser,
+Add, with the usual Experiment "full, unrestricted access" prompt), followed by a restart.
+
+Control: keyboard through `prlctl send-key-event` (Shift+F10 for context menus) and, for drag
+and drop and right-clicks, the macOS pointer on the Parallels window. Background clicks don't
+reach the VM; the pointer works only while Parallels is frontmost.
+
+| Scenario | TB 158.0.1 | TB 153.5.1 ESR |
+| --- | --- | --- |
+| Install from file and restart; Accounts list above the folder tree (All Accounts, 3 accounts, Local Folders) | pass | pass |
+| Selecting an account filters the tree and opens its Inbox; counter on the account row | pass | pass |
+| All Accounts restores the full tree and keeps the open folder | pass | pass |
+| Header menu: Open in New Tab/Window, New Account Group…, Rename…, Delete disabled for All Accounts | pass | pass |
+| New Account Group… creates an empty, focused, unselected group | pass | pass |
+| Account menu → Move to Group (current group checked and disabled) moves the account | pass | pass |
+| "Move to Group" label aligned with the native account menu items | pass (no icon column on GTK) | pass |
+| Selecting a two-account group shows both account roots and opens the first Inbox | pass | pass |
+| Selecting a one-account group behaves like the selected account | pass | not run |
+| Collapsed group shows the members' unread sum | pass | not run |
+| New-mail star on the account row and on the collapsed group (mail from the loopback server) | pass | not run |
+| Rename… prefills the name; an empty name restores "All Accounts" and leaves a user group's name unchanged | pass | not run |
+| Open in New Tab: group's first Inbox in a foreground tab, groups present there | pass | not run |
+| Open in New Window: group's first Inbox, groups shared with the new window | pass | not run |
+| Restart keeps groups, membership, collapsed state and the selected group | pass | pass |
+| Delete returns the accounts to All Accounts; deleting the last user group restores the full tree | pass | pass |
+| Keyboard: Up/Down/Home/End across headers and accounts, Left/Right collapse/expand, Enter selects | pass | pass |
+| Pointer: click selects a group, right-click opens the group menu | pass | not run |
+| Drag onto a group header (collapsed or empty group) moves the account | pass | not run |
+| Drag between accounts of another group moves and positions it (insertion line shown) | pass | not run |
+| Drag inside a group reorders; the folder tree follows the new order, the open Inbox stays open | pass | not run |
+
+Observations:
+
+- The new-mail star disappeared from the AccountPane rows and from the native folder row at the
+  same time after a second window was opened. Thunderbird cleared the folder's new-mail state;
+  AccountPane only followed it.
+- One drag that moved Alpha Studio into the selected group at a position (which also reorders
+  the native accounts) left Thunderbird showing the Beta Home account page instead of its
+  Inbox. The Inbox was open but hidden inside Beta Home's collapsed folder root at that moment,
+  and Thunderbird rebuilt its folder tree after the reorder. With the root expanded, the
+  in-group reorder kept the Inbox open. Not investigated further; possibly native behaviour.
+- Harness: the generated `user.js` re-applies the account list on every start, so it was moved
+  aside after the first start (otherwise the dragged account order is reset). Restart
+  persistence was checked after Ctrl+Q; a SIGTERM stop lost Thunderbird's session state.
+- PR #7 (`menu-iconic` on the Move to Group submenu, the Windows indent fix): its build
+  (head `26ad197`, XPI SHA-256 `67a0367744385568f949202b0389dd2e138fb8de04977f40fc4586e3e0af9adf`)
+  was tried on 158.0.1 here by replacing the installed XPI with Thunderbird closed and removing
+  `startupCache`. On GTK the class adds an empty checkbox-like icon box in front of "Move to
+  Group" and pushes its label to the right of the native labels, so that fix regresses Linux as
+  written. With 0.2.0 the label is already aligned on Linux. The profile went back to the 0.2.0
+  release XPI afterwards.
+
+Not checked on Linux: Thunderbird 140 ESR (no arm64 build), x86_64 builds, the snap or Flatpak
+package as installed and confined, Betterbird, X11 sessions, dark or high-contrast themes, HiDPI
+scaling, screen readers (Orca), Spam exclusion from the counters (no Junk folder in the fictional
+accounts), the Shift and background-tab variants of Open in New Tab, adding or removing a real
+account while groups exist, and on 153.5.1 ESR the rows marked "not run".
 
 ## 0.1.13: Thunderbird 140 ESR and Betterbird 140 (2026-10-24)
 
