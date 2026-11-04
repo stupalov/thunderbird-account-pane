@@ -2,6 +2,10 @@
 
 User-facing changes are listed newest first. These are beta versions; inclusion here does not imply a published release package or validation on every supported platform.
 
+## 0.2.4
+
+- Automatic updates for copies installed from GitHub Releases: the add-on now has an update address, and each release publishes an `updates.json` feed that Thunderbird checks. Versions before 0.2.4 must be updated by hand once. No change to how the folder pane works.
+
 ## 0.2.3
 
 - Account rows and group headers have the same height as Thunderbird's folder rows. The height is taken from the folder pane, so it follows the density setting and themes; group headers lose their extra padding.

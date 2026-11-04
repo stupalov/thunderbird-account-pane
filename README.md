@@ -43,7 +43,11 @@ Download the latest `accountpane-*.xpi` from the [Releases](https://github.com/s
 3. Select the XPI, review the permissions, and confirm installation.
 4. Check that AccountPane is enabled. **Accounts** appears above the folder tree.
 
-To update, install the new XPI using the same menu. You do not need to remove the previous version first.
+Copies installed from Releases (version 0.2.4 or later) update themselves: Thunderbird checks the release feed and offers the new version through its normal add-on update mechanism (**Add-ons and Themes** → gear menu → **Check for Updates**). Versions before 0.2.4 do not have this and must be updated once by hand: install the new XPI using the same menu; you do not need to remove the previous version first.
+
+### Status in the Thunderbird add-on catalogue
+
+The Thunderbird add-on catalogue has paused reviews of new add-ons that use Experiment APIs until at least the next ESR release in 2027 ([announcement](https://thunderbird.topicbox.com/groups/addons/T6ff545fb6d479da5/temporary-pause-on-new-experiment-api-add-on-reviews)). AccountPane needs an Experiment API because Thunderbird has no built-in API for the folder pane, so until then it is distributed from GitHub Releases only.
 
 ### Why the install prompt asks for full access
 
