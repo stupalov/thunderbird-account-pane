@@ -159,7 +159,7 @@ if __name__ == "__main__":
         catalogue = "--catalogue" in sys.argv[1:]
         require(set(sys.argv[1:]) <= {"--catalogue"})
         artifact = build(Path(__file__).resolve().parents[1], catalogue)
-        for path in [artifact, *([artifact.with_name("accountpane-0.2.4-atn.xpi")] if catalogue else [])]:
+        for path in [artifact, *([artifact.with_name(artifact.stem + "-atn.xpi")] if catalogue else [])]:
             print(path)
             print("SHA-256 " + hashlib.sha256(path.read_bytes()).hexdigest())
     except Exception:

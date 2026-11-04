@@ -29,16 +29,16 @@ The manifest's `update_url` is `https://github.com/stupalov/thunderbird-account-
 
 **`releases/latest` ignores pre-releases** and answers 404 when a repository has only pre-releases. Publish every release that carries `updates.json` as a normal release (not "Set as a pre-release"), or the feed is not found.
 
-Checklist for version X.Y.Z:
+Checklist for version X.Y.Z (first rule: the release must not be a pre-release; create it as a draft, attach both files, then publish, so there is no 404 window):
 
 1. Bump the version in `addon/manifest.json`, `package.json`, the version pins in `scripts/build.py` and `tests/build.test.mjs`; update `CHANGELOG.md`.
 2. `node --test tests/*.test.mjs`.
 3. `python3 scripts/build.py --catalogue` builds `dist/accountpane-X.Y.Z.xpi` and `dist/accountpane-X.Y.Z-atn.xpi`.
 4. `python3 scripts/update-manifest.py` generates `dist/updates.json`.
-5. Create the tag `vX.Y.Z` and a normal (non-pre-release) GitHub release; attach `accountpane-X.Y.Z.xpi` and `updates.json` (fixed name, exactly that). Attach the `-atn` XPI only if it is needed for a catalogue upload.
-6. Check `curl -sIL https://github.com/stupalov/thunderbird-account-pane/releases/latest/download/updates.json` ends in 200 and the content matches.
+5. Create the tag `vX.Y.Z` and a draft GitHub release, publish it as a normal (non-pre-release) release after attaching; attach `accountpane-X.Y.Z.xpi` and `updates.json` (fixed name, exactly that). Attach the `-atn` XPI only if it is needed for a catalogue upload.
+6. GitHub picks "latest" by the tagged commit date, so release from the newest commit. Check `curl -sIL https://github.com/stupalov/thunderbird-account-pane/releases/latest/download/updates.json` ends in 200 and the content matches.
 
-Verification on a release: install the previous release's XPI (0.2.4 or later), publish a newer one, then Add-ons Manager → gear menu → **Check for Updates**. On failure, open the Error Console (Ctrl/Cmd+Shift+J) and look for `AddonUpdateChecker` or `XPIInstall` messages: a 404 or parse error means the feed is unreachable (pre-release, wrong asset name); a hash mismatch means `updates.json` was generated from a different XPI than the attached one; no offer at all usually means the version is not higher or the `strict_max_version` excludes the running Thunderbird.
+Verification on a release: install the previous release's XPI (0.2.4 or later), publish a newer one, then Add-ons Manager → gear menu → **Check for Updates**. On failure, open the Error Console (Ctrl/Cmd+Shift+J) and look for `addons.update-checker` and `addons.xpi` warnings (set `extensions.logging.enabled` to true in the Config Editor for more detail): a 404 or parse error means the feed is unreachable (pre-release, wrong asset name); a hash mismatch means `updates.json` was generated from a different XPI than the attached one; no offer at all usually means the version is not higher or the `strict_max_version` excludes the running Thunderbird.
 
 ## Optional image tooling
 

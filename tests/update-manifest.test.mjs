@@ -62,3 +62,12 @@ test("generator refuses a missing XPI and the catalogue variant", () => {
     assert.ok(!existsSync(join(f.root, "dist/updates.json")));
   } finally { f.dispose(); }
 });
+test("generator refuses an ambiguous dist (two release XPIs)", () => {
+  const f = fixture();
+  try {
+    f.py("build.py");
+    cpSync(join(f.root, "dist/accountpane-0.2.4.xpi"), join(f.root, "dist/accountpane-0.2.3.xpi"));
+    const r = f.py("update-manifest.py"); assert.notEqual(r.status, 0);
+    assert.match(r.stderr, /ACCOUNTPANE_UPDATE_INVALID_INPUT/);
+  } finally { f.dispose(); }
+});
