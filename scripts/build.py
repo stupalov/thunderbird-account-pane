@@ -31,6 +31,9 @@ ALLOWED_FILES = (
 )
 
 
+UPDATE_URL = "https://github.com/stupalov/thunderbird-account-pane/releases/latest/download/updates.json"
+
+
 def require(condition):
     if not condition:
         raise ValueError("ACCOUNTPANE_BUILD_INVALID_INPUT")
@@ -57,7 +60,7 @@ def validate_json_refs(value, type_ids):
             validate_json_refs(child, type_ids)
 
 
-def build(root):
+def build(root, catalogue=False):
     addon_root = root / "addon"
     require(addon_root.is_dir() and not addon_root.is_symlink())
     inputs = {}
@@ -77,13 +80,13 @@ def build(root):
                               "description", "permissions", "background",
                               "browser_specific_settings", "experiment_apis"})
     require(manifest["background"] == {"scripts": ["lib/groups.js", "background.js"]})
-    require(manifest["manifest_version"] == 2 and manifest["version"] == "0.2.3")
+    require(manifest["manifest_version"] == 2 and manifest["version"] == "0.2.4")
     icons = {str(size): f"icons/accountpane-{size}.png" for size in (16, 32, 48, 64, 128)}
     require(manifest["icons"] == icons and all(path in inputs for path in icons.values()))
     require(manifest["default_locale"] == "en" and manifest["permissions"] == ["storage"])
     require(manifest["browser_specific_settings"]["gecko"] == {
         "id": "accountpane@stupalov.github.io",
-        "strict_min_version": "140.0", "strict_max_version": "158.*"})
+        "strict_min_version": "140.0", "strict_max_version": "158.*", "update_url": UPDATE_URL})
     require(set(manifest["experiment_apis"]) == {"accountPane"})
     experiment = manifest["experiment_apis"]["accountPane"]
     require(experiment == {"schema": "experiment/schema.json", "parent": {
@@ -115,9 +118,25 @@ def build(root):
             require(isinstance(messages[key]["message"], str) and bool(messages[key]["message"]))
     output_dir = root / "dist"
     require(not output_dir.is_symlink())
-    output = output_dir / "accountpane-0.2.3.xpi"
+    output = output_dir / "accountpane-0.2.4.xpi"
     require(not output.is_symlink())
+    variants = [(output, inputs)]
+    if catalogue:
+        # The add-on catalogue rejects update_url for listed add-ons.
+        listed = json.loads(inputs["manifest.json"], object_pairs_hook=unique_object)
+        del listed["browser_specific_settings"]["gecko"]["update_url"]
+        listed_inputs = dict(inputs)
+        listed_inputs["manifest.json"] = (json.dumps(listed, indent=2) + "\n").encode()
+        atn = output_dir / "accountpane-0.2.4-atn.xpi"
+        require(not atn.is_symlink())
+        variants.append((atn, listed_inputs))
     output_dir.mkdir(exist_ok=True)
+    for target, contents in variants:
+        write_xpi(output_dir, target, contents)
+    return output
+
+
+def write_xpi(output_dir, output, inputs):
     temporary = None
     try:
         with tempfile.NamedTemporaryFile(dir=output_dir, suffix=".xpi", delete=False) as handle:
@@ -133,14 +152,16 @@ def build(root):
     finally:
         if temporary and temporary.exists():
             temporary.unlink()
-    return output
 
 
 if __name__ == "__main__":
     try:
-        artifact = build(Path(__file__).resolve().parents[1])
-        print(artifact)
-        print("SHA-256 " + hashlib.sha256(artifact.read_bytes()).hexdigest())
+        catalogue = "--catalogue" in sys.argv[1:]
+        require(set(sys.argv[1:]) <= {"--catalogue"})
+        artifact = build(Path(__file__).resolve().parents[1], catalogue)
+        for path in [artifact, *([artifact.with_name(artifact.stem + "-atn.xpi")] if catalogue else [])]:
+            print(path)
+            print("SHA-256 " + hashlib.sha256(path.read_bytes()).hexdigest())
     except Exception:
         print("ACCOUNTPANE_BUILD_INVALID_INPUT", file=sys.stderr)
         sys.exit(1)
