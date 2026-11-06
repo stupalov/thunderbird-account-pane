@@ -14,6 +14,7 @@ Copy-and-paste material for the addons.thunderbird.net developer hub. Upload the
 | License | MIT License |
 | Homepage | https://github.com/stupalov/thunderbird-account-pane |
 | Support site | https://github.com/stupalov/thunderbird-account-pane/issues |
+| Contributions URL | https://liberapay.com/stupalov (same as the Tangaroa listing) |
 | Privacy policy | none required; see "Privacy statement" below if the form asks |
 | Icon | `addon/icons/accountpane-128.png` (also 64, 48, 32) |
 | Screenshots | `docs/images/accountpane-light.png`, `docs/images/accountpane-dark.png` (fictional accounts, browser-rendered previews) |
