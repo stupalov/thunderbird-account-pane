@@ -91,6 +91,10 @@ This exclusion is built into AccountPane and has no separate switch. The counter
 
 Open **Add-ons and Themes → Extensions**, then disable AccountPane or choose **Remove** from its menu. The standard folder tree is restored. Account order changes made by dragging remain saved in Thunderbird.
 
+## Support the project
+
+Both the theme and the extension are free. If they make Thunderbird more comfortable for you, you can say thanks on [Liberapay](https://liberapay.com/stupalov) or through the Contribute button on the add-on catalogue page. This changes nothing: everything stays free for everyone.
+
 ## More information
 
 [Changelog](CHANGELOG.md) · [Development](docs/development.md) · [License](LICENSE)
