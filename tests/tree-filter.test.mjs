@@ -365,6 +365,8 @@ test("specific All Folders promotes children of collapsed server and restores na
   f.tree.key("ArrowLeft");
   assert.deepEqual(f.tree.selection, [child]);
   assert.equal(root.collapsed, false);
+  // With the folder still selected the root stays open; see the tests below.
+  f.tree.selection = [];
   filter.apply(null);
   assert.equal(root.unselectable, false);
   assert.equal(root.collapsed, true);
@@ -786,5 +788,42 @@ test("names are not shortened for a multi-account set", () => {
   filter.apply(["a", "b"]);
   assert.equal(a.name, "Release - notes - Work - account");
   assert.equal(Object.hasOwn(a, "_setName"), false);
+  filter.dispose();
+});
+
+test("lifting the restriction keeps a natively collapsed root open around the selected folder", () => {
+  for (const lift of [filter => filter.apply(null), filter => filter.apply(["a", "b"]), filter => filter.dispose()]) {
+    const f = makeTreeFixture();
+    const { root, child } = serverBranch(f, "a");
+    const filter = filters.attach(f.options);
+    filter.apply("a");
+    f.tree.updateSelection(child);
+    f.events.length = 0;
+    lift(filter);
+    // A collapsed ancestor would drop the open folder from the native rows; the
+    // next tree mutation then moves the selection to the account root.
+    assert.equal(root.collapsed, false);
+    assert.equal(root.childList.hidden, false);
+    assert.equal(root.unselectable, false);
+    assert.equal(root.getAttribute("data-accountpane-flattened"), null);
+    assert.ok(Array.from(f.tree.rows).includes(child));
+    // Expanded through the native helper, so Thunderbird persists the state itself.
+    assert.deepEqual(f.events.filter(event => event.type === "ensure").map(event => event.args[0]), [child]);
+    assert.deepEqual(f.events.filter(event => event.type === "follow"), []);
+    filter.dispose();
+  }
+});
+
+test("lifting the restriction still collapses a root whose folders are not selected", () => {
+  const f = makeTreeFixture();
+  const { root } = serverBranch(f, "a");
+  const filter = filters.attach(f.options);
+  filter.apply("a");
+  f.tree.selection = [f.tree.allRows.at(-1)];
+  f.events.length = 0;
+  filter.apply(null);
+  assert.equal(root.collapsed, true);
+  assert.equal(root.childList.hidden, true);
+  assert.deepEqual(f.events, []);
   filter.dispose();
 });

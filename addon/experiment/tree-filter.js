@@ -116,8 +116,23 @@ var AccountPaneTreeFilter = (() => {
         if (!previous.unselectable) { row.classList.remove("unselectable"); }
         if (previous.collapsed) { row.classList.add("collapsed"); }
         if (row.childList) { row.childList.hidden = previous.hidden; }
+        if (previous.collapsed) { revealSelection(row); }
       }
       flattened.delete(row);
+    }
+
+    // The open folder may sit under the root we just collapsed again. Native
+    // rows would then drop it, and the next tree mutation would move the
+    // selection to the account root. Expand as native navigation does.
+    function revealSelection(row) {
+      try {
+        const current = tree.selectedRow;
+        if (!current || current === row || !row.contains(current)) { return; }
+        hooks[3].native.call(window, current);
+        if (!row.classList.contains("collapsed") && row.childList) { row.childList.hidden = false; }
+      } catch {
+        // The root stays natively collapsed; nothing else depends on this.
+      }
     }
 
     function restoreIndent(row) {

@@ -834,3 +834,21 @@ test("account reorder uses current visible order and keeps newly hidden Local Fo
   assert.equal(f.adapter.reorderAccount("a", "b", true), false);
   assert.equal(calls.length, 1);
 });
+
+test("a displayed folder outside every listed account is foreign, a missing or stale one is not", () => {
+  const f = fixture();
+  assert.equal(f.adapter.foreignFolder(), false);
+  f.window.gFolder = { URI: "fixture://smart/Inbox", server: { key: "smart-mailboxes" } };
+  assert.equal(f.adapter.foreignFolder(), true);
+  assert.equal(f.adapter.currentFolder(), null);
+  f.window.folderPane.getRowForFolder = () => null;
+  assert.equal(f.adapter.foreignFolder(), false);
+  f.window.folderPane.getRowForFolder = uri => ({ uri });
+  f.window.gFolder = null;
+  assert.equal(f.adapter.foreignFolder(), false);
+  f.window.gFolder = { URI: "fixture://smart/Inbox", get server() { throw Error("removed"); } };
+  assert.equal(f.adapter.foreignFolder(), false);
+  f.window.gFolder = { URI: "fixture://smart/Inbox", server: { key: "smart-mailboxes" } };
+  f.adapter.dispose();
+  assert.equal(f.adapter.foreignFolder(), false);
+});

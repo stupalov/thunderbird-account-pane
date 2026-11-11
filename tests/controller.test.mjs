@@ -11,7 +11,7 @@ const Controller = existsSync(controllerPath) ? loadScript(controllerPath, "Acco
 const groups = loadScript("addon/lib/groups.js", "AccountPaneGroups");
 const work = { groups: [{ id: "g", name: "Work" }] };
 
-function fixture({ settings = {}, current = null, modes = ["all", "favorite"], canDisplayFolder = () => true, saveResult, trackCounts = false, ensureAllFolders, accountKeys } = {}) {
+function fixture({ settings = {}, current = null, modes = ["all", "favorite"], canDisplayFolder = () => true, saveResult, trackCounts = false, ensureAllFolders, accountKeys, foreignFolder } = {}) {
   const data = makeModelFixture();
   const listeners = { folder: new Set(), accounts: new Set(), modes: new Set(), counts: new Set() };
   const effects = [], saved = [], displayCalls = [];
@@ -28,6 +28,7 @@ function fixture({ settings = {}, current = null, modes = ["all", "favorite"], c
     canDisplayFolder,
     ...(ensureAllFolders ? { ensureAllFolders } : {}),
     ...(accountKeys ? { listAccountKeys: () => accountKeys() } : {}),
+    ...(foreignFolder ? { foreignFolder } : {}),
     displayFolder(uri) { displayCalls.push(uri); effects.push(["display", uri]); },
     reorderAccount(...args) { effects.push(["reorder", ...args]); },
     onFolderChanged: subscribe("folder"), onAccountsChanged: subscribe("accounts"),
@@ -692,4 +693,40 @@ test("rename and delete only save patches; the default group is never deleted", 
   assert.deepEqual(f.saved, [{ renameGroup: { groupId: "default", name: "" } },
     { renameGroup: { groupId: "g", name: "Office" } }, { deleteGroup: { groupId: "g" } }]);
   assert.deepEqual(f.effects, []);
+});
+
+test("a Unified or virtual folder open at attachment wins over the saved account", () => {
+  const f = fixture({ settings: { selectedAccountId: "a", lastFolders: { a: "fixture://a/archive" } },
+    foreignFolder: () => true });
+  assert.equal(f.selected(), null);
+  assert.equal(f.filtered(), null);
+  f.adapter.emitAccounts();
+  f.adapter.emitModes(["all", "smart"]);
+  assert.equal(f.selected(), null);
+  assert.deepEqual(f.displayCalls, []);
+});
+
+test("a restricted pane fails open instead of navigating away from a Unified or virtual folder", () => {
+  let foreign = false;
+  const f = fixture({ foreignFolder: () => foreign });
+  f.controller.selectAccount("a");
+  f.adapter.emitFolder({ accountId: "a", uri: "fixture://a/archive", available: true });
+  f.displayCalls.length = 0;
+  foreign = true;
+  f.adapter.emitFolder(null);
+  f.adapter.emitAccounts();
+  assert.equal(f.selected(), null);
+  assert.equal(f.filtered(), null);
+  assert.deepEqual(f.displayCalls, []);
+});
+
+test("without a foreign folder a lost current folder still recovers inside the account", () => {
+  const f = fixture({ foreignFolder: () => false });
+  f.controller.selectAccount("a");
+  f.adapter.emitFolder({ accountId: "a", uri: "fixture://a/archive", available: true });
+  f.displayCalls.length = 0;
+  f.adapter.emitFolder(null);
+  f.adapter.emitAccounts();
+  assert.equal(f.selected(), "a");
+  assert.deepEqual(f.displayCalls, ["fixture://a/archive"]);
 });

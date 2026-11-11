@@ -212,6 +212,19 @@ var AccountPaneAdapter = (() => {
       }
     }
 
+    // A displayed folder that belongs to no listed account: a Unified folder or
+    // a saved search on the hidden smart-mailboxes server. currentFolder() is
+    // null for it, exactly as when nothing is open.
+    function foreignFolder() {
+      try {
+        const folder = window.gFolder;
+        return Boolean(folder) && accountForServer(folder.server.key) === null &&
+          canDisplayFolder(folder.URI);
+      } catch {
+        return false;
+      }
+    }
+
     function activeModes() {
       return Array.from(window.folderPane.activeModes);
     }
@@ -591,7 +604,8 @@ var AccountPaneAdapter = (() => {
         }
       }
     }
-    return { listAccounts, listAccountKeys, reorderAccount, listFolders, currentFolder, selectedFolders, activeModes,
+    return { listAccounts, listAccountKeys, reorderAccount, listFolders, currentFolder, foreignFolder, selectedFolders,
+      activeModes,
       canDisplayFolder, displayFolder, ensureAllFolders, showAccountContextMenu, showGroupContextMenu, promptGroupName,
       canOpenFolder, openFolder, accountForRow, messageCounts, onMessageCountsChanged, onFolderChanged,
       onAccountsChanged, onModesChanged, dispose };

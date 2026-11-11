@@ -202,6 +202,11 @@ var AccountPaneController = (() => {
         const current = adapter.currentFolder();
         // Native multiple selection deliberately clears gFolder. Keep that
         // selection only while every selected row is still live and belongs here.
+        // A Unified or virtual folder is open, not lost: never navigate away from it.
+        if (!current && adapter.foreignFolder?.()) {
+          changeSelection(null);
+          return;
+        }
         const selected = current ? [] : adapter.selectedFolders();
         if (selected.length > 1 && selected.every(folder => members.includes(folder.accountId))) {
           return;
@@ -312,6 +317,10 @@ var AccountPaneController = (() => {
     }
 
     function initialSelection() {
+      // The folder already open wins, also when it belongs to no listed account.
+      if (adapter.foreignFolder?.()) {
+        return null;
+      }
       const list = groupView();
       const folderAccount = adapter.currentFolder()?.accountId;
       const saved = shared.selectedGroupId ? { type: "group", id: shared.selectedGroupId } :

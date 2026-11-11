@@ -146,6 +146,9 @@ Observations:
   Inbox. The Inbox was open but hidden inside Beta Home's collapsed folder root at that moment,
   and Thunderbird rebuilt its folder tree after the reorder. With the root expanded, the
   in-group reorder kept the Inbox open. Not investigated further; possibly native behaviour.
+  Later traced to AccountPane: lifting the single-account restriction put the `collapsed`
+  class back on the root with the open folder inside it, and the next tree rebuild moved the
+  native selection to the root. Fixed after 0.2.4 (`restoreFlattened` in `tree-filter.js`).
 - Harness: the generated `user.js` re-applies the account list on every start, so it was moved
   aside after the first start (otherwise the dragged account order is reset). Restart
   persistence was checked after Ctrl+Q; a SIGTERM stop lost Thunderbird's session state.
