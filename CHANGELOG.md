@@ -2,6 +2,12 @@
 
 User-facing changes are listed newest first. These are beta versions; inclusion here does not imply a published release package or validation on every supported platform.
 
+## 0.2.5
+
+- Thunderbird 159 is supported: `strict_max_version` is now `159.*`. Thunderbird 159 disables 0.2.4 and earlier as incompatible. Copies of 0.2.4 update themselves; older copies have no update address and must be updated by hand once.
+- Fix: returning to **All Accounts** (or to a group of several accounts, or disabling the add-on) while the open folder's account root was collapsed in All Folders no longer sends Thunderbird to the account page. The root is now expanded around the open folder, as Thunderbird does when it navigates to a folder.
+- Fix: a Unified folder or a saved search that is already open when a mail tab starts is kept. AccountPane used to restrict that tab to the last selected account and then open that account's folder; it now leaves the full tree and the open folder alone.
+
 ## 0.2.4
 
 - Automatic updates for copies installed from GitHub Releases: the add-on now has an update address, and each release publishes an `updates.json` feed that Thunderbird checks. Versions before 0.2.4 must be updated by hand once. No change to how the folder pane works.

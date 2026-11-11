@@ -68,6 +68,7 @@ export function makeTreeFixture(accountIds = ["a", "b"]) {
       });
     }
     get rowCount() { return this.rows.length; }
+    get selectedRow() { return this.selection.at(-1) ?? null; }
     getRowAtIndex(index) { return this.rows[index]; }
     querySelectorAll(selector) { return selector === "li" ? this.allRows : this.allRows.filter(row => !row.unselectable); }
     updateSelection(row, event) {

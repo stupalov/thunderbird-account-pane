@@ -19,14 +19,14 @@ test("updates.json describes the built XPI: version, link, sha256 and bounds", (
   try {
     assert.equal(f.py("build.py").status, 0);
     const result = f.py("update-manifest.py"); assert.equal(result.status, 0, result.stderr);
-    const xpi = readFileSync(join(f.root, "dist/accountpane-0.2.4.xpi"));
+    const xpi = readFileSync(join(f.root, "dist/accountpane-0.2.5.xpi"));
     const doc = JSON.parse(readFileSync(join(f.root, "dist/updates.json"), "utf8"));
     assert.deepEqual(Object.keys(doc), ["addons"]); assert.deepEqual(Object.keys(doc.addons), [ID]);
     assert.deepEqual(doc.addons[ID].updates, [{
-      version: "0.2.4",
-      update_link: "https://github.com/stupalov/thunderbird-account-pane/releases/download/v0.2.4/accountpane-0.2.4.xpi",
+      version: "0.2.5",
+      update_link: "https://github.com/stupalov/thunderbird-account-pane/releases/download/v0.2.5/accountpane-0.2.5.xpi",
       update_hash: "sha256:" + createHash("sha256").update(xpi).digest("hex"),
-      applications: { gecko: { strict_min_version: "140.0", strict_max_version: "158.*" } }
+      applications: { gecko: { strict_min_version: "140.0", strict_max_version: "159.*" } }
     }]);
   } finally { f.dispose(); }
 });
@@ -48,7 +48,7 @@ test("generator uses the version and bounds from the manifest inside the XPI, no
     m.version = "9.9.9"; m.browser_specific_settings.gecko.strict_max_version = "999.*"; writeFileSync(file, JSON.stringify(m));
     assert.equal(f.py("update-manifest.py").status, 0);
     const u = JSON.parse(readFileSync(join(f.root, "dist/updates.json"), "utf8")).addons[ID].updates[0];
-    assert.equal(u.version, "0.2.4"); assert.equal(u.applications.gecko.strict_max_version, "158.*");
+    assert.equal(u.version, "0.2.5"); assert.equal(u.applications.gecko.strict_max_version, "159.*");
   } finally { f.dispose(); }
 });
 test("generator refuses a missing XPI and the catalogue variant", () => {
@@ -57,7 +57,7 @@ test("generator refuses a missing XPI and the catalogue variant", () => {
     let r = f.py("update-manifest.py"); assert.notEqual(r.status, 0);
     assert.ok(!existsSync(join(f.root, "dist/updates.json")));
     f.py("build.py", "--catalogue");
-    r = f.py("update-manifest.py", join(f.root, "dist/accountpane-0.2.4-atn.xpi"));
+    r = f.py("update-manifest.py", join(f.root, "dist/accountpane-0.2.5-atn.xpi"));
     assert.notEqual(r.status, 0); assert.match(r.stderr, /ACCOUNTPANE_UPDATE_INVALID_INPUT/);
     assert.ok(!existsSync(join(f.root, "dist/updates.json")));
   } finally { f.dispose(); }
@@ -66,7 +66,7 @@ test("generator refuses an ambiguous dist (two release XPIs)", () => {
   const f = fixture();
   try {
     f.py("build.py");
-    cpSync(join(f.root, "dist/accountpane-0.2.4.xpi"), join(f.root, "dist/accountpane-0.2.3.xpi"));
+    cpSync(join(f.root, "dist/accountpane-0.2.5.xpi"), join(f.root, "dist/accountpane-0.2.3.xpi"));
     const r = f.py("update-manifest.py"); assert.notEqual(r.status, 0);
     assert.match(r.stderr, /ACCOUNTPANE_UPDATE_INVALID_INPUT/);
   } finally { f.dispose(); }

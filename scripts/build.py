@@ -80,13 +80,13 @@ def build(root, catalogue=False):
                               "description", "permissions", "background",
                               "browser_specific_settings", "experiment_apis"})
     require(manifest["background"] == {"scripts": ["lib/groups.js", "background.js"]})
-    require(manifest["manifest_version"] == 2 and manifest["version"] == "0.2.4")
+    require(manifest["manifest_version"] == 2 and manifest["version"] == "0.2.5")
     icons = {str(size): f"icons/accountpane-{size}.png" for size in (16, 32, 48, 64, 128)}
     require(manifest["icons"] == icons and all(path in inputs for path in icons.values()))
     require(manifest["default_locale"] == "en" and manifest["permissions"] == ["storage"])
     require(manifest["browser_specific_settings"]["gecko"] == {
         "id": "accountpane@stupalov.github.io",
-        "strict_min_version": "140.0", "strict_max_version": "158.*", "update_url": UPDATE_URL})
+        "strict_min_version": "140.0", "strict_max_version": "159.*", "update_url": UPDATE_URL})
     require(set(manifest["experiment_apis"]) == {"accountPane"})
     experiment = manifest["experiment_apis"]["accountPane"]
     require(experiment == {"schema": "experiment/schema.json", "parent": {
@@ -118,7 +118,7 @@ def build(root, catalogue=False):
             require(isinstance(messages[key]["message"], str) and bool(messages[key]["message"]))
     output_dir = root / "dist"
     require(not output_dir.is_symlink())
-    output = output_dir / "accountpane-0.2.4.xpi"
+    output = output_dir / "accountpane-0.2.5.xpi"
     require(not output.is_symlink())
     variants = [(output, inputs)]
     if catalogue:
@@ -127,7 +127,7 @@ def build(root, catalogue=False):
         del listed["browser_specific_settings"]["gecko"]["update_url"]
         listed_inputs = dict(inputs)
         listed_inputs["manifest.json"] = (json.dumps(listed, indent=2) + "\n").encode()
-        atn = output_dir / "accountpane-0.2.4-atn.xpi"
+        atn = output_dir / "accountpane-0.2.5-atn.xpi"
         require(not atn.is_symlink())
         variants.append((atn, listed_inputs))
     output_dir.mkdir(exist_ok=True)
